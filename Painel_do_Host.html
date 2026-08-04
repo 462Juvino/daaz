@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel DAAZ</title>
+    <style>
+        body { background-color: #0d1117; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; margin: 0; }
+        h2 { text-align: center; color: #ff4757; margin-top: 0; margin-bottom: 5px; }
+        #licenca-info { text-align: center; font-size: 0.9em; color: #2ed573; font-weight: bold; margin-bottom: 20px; }
+        fieldset { border: 1px solid #30363d; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #12151b; }
+        legend { font-weight: bold; color: #2ed573; padding: 0 5px; }
+        label { font-size: 0.85rem; color: #c9d1d9; font-weight: bold; }
+        input[type="text"], input[type="number"], select {
+            width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 10px;
+            background: #161b22; border: 1px solid #30363d; color: white;
+            border-radius: 5px; box-sizing: border-box; font-size: 0.9rem;
+        }
+        input[type="range"] { width: 100%; margin-top: 5px; margin-bottom: 15px; }
+        .btn-save { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 10px; transition: 0.2s; }
+        .btn-save:hover { background: #2980b9; }
+        .btn-start { width: 100%; background: #ff4757; color: white; padding: 15px; font-weight: 900; font-size: 1.2rem; border: none; border-radius: 5px; cursor: pointer; transition: 0.2s; text-transform: uppercase; }
+        .btn-start:hover { background: #ff6b81; }
+        .radio-group { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
+        .flex-row { display: flex; gap: 10px; align-items: center;}
+        .flex-col { flex: 1; }
+
+        .caixa-lista { margin-top: 10px; max-height: 150px; overflow-y: auto; background: #161b22; border: 1px solid #30363d; border-radius: 5px; padding: 5px; }
+        .player-item { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #30363d; font-size: 0.85rem; }
+        .btn-remove { color: #ff4757; cursor: pointer; font-weight: bold; padding: 0 5px; border: 1px solid #ff4757; border-radius: 3px; }
+        .btn-add { color: #2ed573; cursor: pointer; font-weight: bold; padding: 0 5px; border: 1px solid #2ed573; border-radius: 3px; }
+
+        .btn-modo { flex: 1; padding: 10px; background: #222; color: #fff; border: 1px solid #555; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 0.8rem;}
+        .btn-modo.active { background: #f39c12; color: #000; border-color: #f39c12; }
+
+        details { background: #161b22; border: 1px solid #30363d; border-radius: 5px; margin-bottom: 10px; padding: 10px; }
+        summary { font-weight: bold; color: #f39c12; cursor: pointer; outline: none; list-style: none; }
+        summary::-webkit-details-marker { display: none; }
+        details p { font-size: 0.85rem; color: #ccc; line-height: 1.4; margin-top: 10px; margin-bottom: 0; }
+        ul.ajuda-lista { margin-top: 5px; margin-bottom: 0; padding-left: 20px; font-size: 0.85rem; color: #ccc; }
+        ul.ajuda-lista li { margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+    <h2>DAAZ</h2>
+    <div id="licenca-info">Carregando licença...</div>
+
+    <fieldset>
+        <legend>📺 Controlo do Ecrã & Rankings</legend>
+        <!-- Campo necessário para evitar o quebre de script ao sincronizar dados da API -->
+        <input type="hidden" id="tiktok_username" value="">
+
+        <div class="flex-row" style="margin-bottom: 10px;">
+            <div class="flex-col" style="flex: 2;">
+                <label>Filtrar Rankings Por:</label>
+                <select id="ranking_periodo" onchange="mudarPeriodoRanking()">
+                    <option value="diario">Apenas Hoje (Diário)</option>
+                    <option value="semanal">Esta Semana</option>
+                    <option value="mensal">Este Mês</option>
+                    <option value="geral">Histórico Geral (Sempre)</option>
+                </select>
+            </div>
+
+        </div>
+
+        <div class="flex-row" style="flex-wrap: wrap; gap: 5px;">
+            <button class="btn-modo active" id="btn_game" onclick="mudarEcra('game')">Roda do Jogo</button>
+            <button class="btn-modo" id="btn_rank_vitorias" onclick="mudarEcra('rank_vitorias')">Top Vitórias</button>
+            <button class="btn-modo" id="btn_rank_palavras" onclick="mudarEcra('rank_palavras')">Top Palavras</button>
+            <button class="btn-modo" id="btn_rank_heroi" onclick="mudarEcra('rank_heroi')">Top Heróis</button>
+            <button class="btn-modo" id="btn_rank_vilao" onclick="mudarEcra('rank_vilao')">Top Vilões</button>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>📖 Central de Ajuda</legend>
+
+        <details>
+            <summary>🕹️ Como Jogar (Regras p/ o Público)</summary>
+            <<p>
+                <strong>Entrar no Jogo:</strong> Envie o presente de entrada (ex: Rosa) ou dê cliques (taps) na tela durante o Lobby para entrar na plateia.<br>
+                <strong>Responder:</strong> Quando a Categoria aparecer, digite uma palavra válida. A primeira letra da sua palavra deve estar LIVRE no Círculo do Alfabeto (A a Z).<br>
+                <strong>Fim do Tempo:</strong> Quem não conseguir conquistar nenhuma letra antes do tempo zerar, explode e sai do jogo.<br>
+                <strong>Poderes Especiais:</strong><br>
+            </p>
+            <ul class="ajuda-lista">
+                <li>Mandar Presente de <strong>Tempo</strong> adiciona +10s globais, ajudando todos.</li>
+                <li>Mandar Presente de <strong>Sabotagem</strong> remove -5s globais, acelerando a explosão.</li>
+                <li>Mandar a <strong>Bomba Nuclear</strong> tenta explodir toda a plateia de uma só vez.</li>
+                <li>Mandar o <strong>Colete</strong> cria um escudo que te defende caso alguém jogue a Nuclear.</li>
+                <li>Mandar <strong>Reviver</strong> gera um Ticket 🎟️. Digite o nick de quem morreu no chat para usar o ticket e resgatar a pessoa.</li>
+            </ul>
+        </details>
+
+        <details>
+            <summary>⚙️ Como Operar o Painel (Host)</summary>
+            <ul class="ajuda-lista">
+                <li><b>Conexão Fallback:</b> Insira o seu @ do TikTok. Caso o TikFinity desconecte, o próprio jogo assume a leitura do chat e dos presentes de forma automática.</li>
+                <li><b>Controle de Jogadores:</b> Use a barra de buscas abaixo para filtrar os nicks. Clique em <b>[X]</b> para remover ou expulsar alguém e <b>[+]</b> para colocar direto na plateia.</li>
+                <li><b>Aceleração Automática:</b> O jogo reduz automaticamente 10 segundos do tempo total a cada nova rodada para aumentar a dificuldade dos sobreviventes.</li>
+            </ul>
+        </details>
+    </fieldset>
+
+    <fieldset>
+        <legend>Gerir Jogadores</legend>
+        <input type="text" id="filtro_jogadores" placeholder="🔍 Buscar jogador na live ou na roda..." onkeyup="filtrarListas()" style="background: #222; border: 1px solid #ff4757; color: white; border-radius: 5px; padding: 10px; margin-bottom: 15px;">
+
+        <label style="color: #f39c12;">Espectadores na Live (Clique [+] para adicionar):</label>
+        <div id="lista-espectadores" class="caixa-lista" style="margin-bottom: 15px;"></div>
+
+        <label style="color: #2ed573;">Na Plateia do Jogo (Clique [X] para remover):</label>
+        <div class="flex-row">
+            <input type="text" id="manual_nick" placeholder="Ou digite o Nick manualmente" style="margin-bottom:0">
+            <button onclick="adicionarManual()" style="background: #2ed573; color: black; border: none; padding: 0 20px; border-radius: 5px; font-weight: bold; cursor: pointer;">[+]</button>
+        </div>
+        <div id="lista-jogadores-painel" class="caixa-lista"></div>
+    </fieldset>
+
+    <fieldset>
+        <legend>🔗 Link para OBS / TikTok Live Studio</legend>
+        <p style="font-size: 0.85rem; color: #ccc; margin-top: 0; margin-bottom: 5px;">Copie o link abaixo e cole no navegador do seu programa de live. Ele já contém a sua licença VIP!</p>
+        <div class="flex-row">
+            <input type="text" id="obs-link" readonly style="margin-bottom: 0; color: #f39c12; font-weight: bold; background: #222;">
+            <button onclick="copiarLinkOBS()" style="background: #3498db; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold;">📋 COPIAR</button>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Visuais e Áudio</legend>
+        <div class="radio-group">
+            <label><input type="radio" name="bg_type" value="color" checked onchange="mudarFundoTipo()"> Cor Sólida</label>
+            <label><input type="radio" name="bg_type" value="image" onchange="mudarFundoTipo()"> Imagem</label>
+        </div>
+        <div id="div_bg_color">
+            <input type="color" id="bg_color" value="#1a1a24" style="width: 100%; height: 40px; padding: 0; cursor: pointer;" onchange="enviarFundoCor()">
+        </div>
+        <div id="div_bg_image" style="display: none;">
+            <input type="file" id="bg_image" accept="image/*" onchange="enviarFundoImagem(event)">
+        </div>
+
+        <label style="display: block; margin-top: 10px;">Volume da Explosão: <span id="vol_val" style="color: #f39c12;">8%</span></label>
+        <input type="range" id="volume_explosao" min="0" max="100" value="8" onchange="salvarConfig(true)" oninput="document.getElementById('vol_val').innerText = this.value + '%'">
+
+        <label style="display: block; margin-top: 10px;">Zoom Remoto do Jogo: <span id="zoom_val" style="color: #f39c12;">100%</span></label>
+        <input type="range" id="zoom_jogo" min="40" max="200" value="100" onchange="salvarConfig(true)" oninput="document.getElementById('zoom_val').innerText = this.value + '%'">
+    </fieldset>
+
+    <fieldset>
+        <legend>Configurações Gerais</legend>
+        <label style="cursor: pointer; display: block; margin-bottom: 10px;">
+            <input type="checkbox" id="entrar_join" onchange="salvarConfig(true)"> Entrar apenas visitando a live
+        </label>
+        <div class="flex-row">
+            <div class="flex-col" style="flex: 2;">
+                <label>Modo de Jogo:</label>
+                <select id="modo_jogo" onchange="salvarConfig(true)">
+                    <option value="letras">Apenas Letras (Stop)</option>
+                    <option value="misto">Misto (Letras e Matemática)</option>
+                    <option value="matematica">Apenas Matemática</option>
+                </select>
+            </div>
+            <div class="flex-col">
+                <label>Taps p/ entrar:</label>
+                <input type="number" id="taps_entrada" value="0" onchange="salvarConfig(true)">
+            </div>
+        </div>
+        <div class="flex-row" style="margin-top: 10px;">
+            <div class="flex-col">
+                <label>Tempo Inicial (Segundos):</label>
+                <input type="number" id="tempo_rodada" value="60">
+            </div>
+            <div class="flex-col">
+                <label>Bomba Queda (Segundos):</label>
+                <input type="number" id="tempo_bomba_queda" value="7">
+            </div>
+        </div>
+        <label>Presente de Entrada:</label>
+        <input type="text" id="pres_entrada" value="Rosa">
+    </fieldset>
+
+    <fieldset>
+        <legend>Sistema de Presentes</legend>
+        <div style="color: #2ed573; margin-bottom: 5px;">▲ Vantagens / Herói</div>
+        <div class="flex-row">
+            <div class="flex-col">
+                <label>+10 Segundos:</label>
+                <input type="text" id="pres_tempo" value="Relogio">
+            </div>
+            <div class="flex-col">
+                <label>Pular Desafio:</label>
+                <input type="text" id="pres_pular" value="Aviao">
+            </div>
+        </div>
+
+        <div style="color: #ff4757; margin-top: 10px; margin-bottom: 5px;">▼ Sabotagem / Vilão</div>
+        <div class="flex-row">
+            <div class="flex-col">
+                <label>-5 Segundos (Geral):</label>
+                <input type="text" id="pres_menos_tempo" value="Pimenta">
+            </div>
+            <div class="flex-col">
+                <label>Uma Bomba (Cai do Céu):</label>
+                <input type="text" id="pres_uma_bomba" value="Rosa">
+            </div>
+        </div>
+        <div class="flex-row">
+            <div class="flex-col">
+                <label>Empurrar Bomba (Mão):</label>
+                <input type="text" id="pres_empurrar" value="Halteres">
+            </div>
+            <div class="flex-col">
+                <label>Bomba Nuclear (4 Bombas):</label>
+                <input type="text" id="pres_kick" value="Brabo">
+            </div>
+        </div>
+
+        <div style="color: #f39c12; margin-top: 10px; margin-bottom: 5px;">★ Retorno / Defesa</div>
+        <div class="flex-row">
+            <div class="flex-col">
+                <label>Reviver (Gera Ticket):</label>
+                <input type="text" id="pres_reviver" value="Coracao">
+            </div>
+            <div class="flex-col">
+                <label>Colete (Defende Nuclear):</label>
+                <input type="text" id="pres_colete" value="Escudo">
+            </div>
+        </div>
+    </fieldset>
+
+    <button class="btn-save" onclick="salvarConfig(false)">Salvar Configurações</button>
+    <button class="btn-start" onclick="iniciarJogo()">INICIAR PARTIDA</button>
+
+    <script>
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('u') && urlParams.has('p')) {
+            localStorage.setItem('rdm_user', urlParams.get('u'));
+            localStorage.setItem('rdm_perfil', urlParams.get('p'));
+        }
+
+        let currentBgType = 'color';
+        let currentBgValue = '#1a1a24';
+        let lastCfgStr = "";
+
+        // 🛡️ TRAVA RDM STUDIO (Licença Integrada)
+        function verificarStatusRDM() {
+            let user = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user');
+            let perfil = localStorage.getItem('rdm_perfil');
+            let lic = document.getElementById('licenca-info');
+            if (user && perfil) {
+                if(lic) { lic.innerText = `✅ Logado como: ${user} (${perfil.toUpperCase()})`; lic.style.color = "#2ecc71"; }
+            } else {
+                if(lic) { lic.innerText = "❌ Desconectado. Faça login no site RDM Studio."; lic.style.color = "#e74c3c"; }
+            }
+        }
+        verificarStatusRDM();
+        setInterval(verificarStatusRDM, 5000);
+
+        function atualizarLinkOBS() {
+            let user = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user') || "visitante";
+            let baseURL = window.location.href.replace('Painel_do_Host.html', 'index.html').split('?')[0];
+            document.getElementById('obs-link').value = `${baseURL}?u=${user}&p=pro`;
+        }
+        atualizarLinkOBS();
+
+        function copiarLinkOBS() {
+            let input = document.getElementById('obs-link');
+            input.select(); document.execCommand("copy");
+            alert("✅ Link copiado! Pode colar no TikTok Live Studio ou OBS.");
+        }
+
+        function carregarConfigInputs(cfgStr) {
+            lastCfgStr = cfgStr; let cfg = JSON.parse(cfgStr);
+            document.getElementById('tiktok_username').value = cfg.tiktok_username || "";
+            document.getElementById('tempo_rodada').value = cfg.tempo_rodada || 60;
+            document.getElementById('tempo_bomba_queda').value = cfg.tempo_bomba_queda || 7;
+            document.getElementById('pres_entrada').value = cfg.presente_entrada || "";
+            document.getElementById('pres_tempo').value = cfg.presente_tempo || "";
+            document.getElementById('pres_pular').value = cfg.presente_pular || "";
+            document.getElementById('pres_menos_tempo').value = cfg.presente_menos_tempo || "";
+            document.getElementById('pres_kick').value = cfg.presente_kick || "";
+            document.getElementById('pres_uma_bomba').value = cfg.presente_uma_bomba || "";
+            document.getElementById('pres_empurrar').value = cfg.presente_empurrar || "";
+            document.getElementById('pres_reviver').value = cfg.presente_reviver || "Coracao";
+            document.getElementById('pres_colete').value = cfg.presente_colete || "Escudo";
+            document.getElementById('taps_entrada').value = cfg.taps_entrada || 0;
+            document.getElementById('entrar_join').checked = cfg.entrar_por_join || false;
+            document.getElementById('modo_jogo').value = cfg.modo_jogo || "letras";
+
+            const vol = Math.round((cfg.volume_explosao || 0.08) * 100);
+            document.getElementById('volume_explosao').value = vol;
+            if (document.getElementById('vol_val')) document.getElementById('vol_val').innerText = vol + '%';
+
+            const zoomPercent = Math.round((cfg.zoom_level || 1.0) * 100);
+            if (document.getElementById('zoom_jogo')) document.getElementById('zoom_jogo').value = zoomPercent;
+            if (document.getElementById('zoom_val')) document.getElementById('zoom_val').innerText = zoomPercent + '%';
+
+            currentBgType = cfg.bg_type || 'color'; currentBgValue = cfg.bg_value || '#1a1a24';
+            let radio = document.querySelector(`input[name="bg_type"][value="${currentBgType}"]`); if(radio) radio.checked = true;
+            mudarFundoTipo(true);
+            if(currentBgType === 'color' && currentBgValue !== 'transparent') document.getElementById('bg_color').value = currentBgValue;
+        }
+
+        // Loop principal que lê o motor do jogo na Tela
+        setInterval(() => {
+            let stateStr = localStorage.getItem('daazState');
+            if (stateStr) {
+                let state = JSON.parse(stateStr);
+                renderizarListaRoda(state.jogadores || [], state.dados_jogadores || {});
+                renderizarEspectadores(state.espectadores || {}, state.jogadores || []);
+                atualizarBotoesEcra(state.display_mode || 'game');
+                filtrarListas();
+            }
+            let cfgStr = localStorage.getItem('daazConfig');
+            if (cfgStr && cfgStr !== lastCfgStr) {
+                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') carregarConfigInputs(cfgStr);
+            }
+        }, 1000);
+
+        window.onload = () => { let initialCfg = localStorage.getItem('daazConfig'); if (initialCfg) carregarConfigInputs(initialCfg); };
+
+        function mudarFundoTipo(apenasVisor = false) {
+            let selected = document.querySelector('input[name="bg_type"]:checked');
+            if(selected) currentBgType = selected.value;
+            document.getElementById('div_bg_color').style.display = currentBgType === 'color' ? 'block' : 'none';
+            document.getElementById('div_bg_image').style.display = currentBgType === 'image' ? 'block' : 'none';
+            if(!apenasVisor) salvarConfig(true);
+        }
+
+        function enviarFundoCor() { currentBgValue = document.getElementById('bg_color').value; salvarConfig(true); }
+        function enviarFundoImagem(event) {
+            const file = event.target.files[0]; if(!file) return; const reader = new FileReader();
+            reader.onload = function(e) { currentBgValue = e.target.result; salvarConfig(true); };
+            reader.readAsDataURL(file);
+        }
+
+        function enviarComando(action, value = null) { localStorage.setItem('daazCommand', JSON.stringify({ ts: Date.now(), action: action, value: value })); }
+        function mudarEcra(modo) { document.querySelectorAll('.btn-modo').forEach(btn => btn.classList.remove('active')); let btn = document.getElementById('btn_' + modo); if(btn) btn.classList.add('active'); enviarComando('display_mode', modo); }
+        function mudarPeriodoRanking() { let p = document.getElementById('ranking_periodo').value; enviarComando('display_periodo', p); localStorage.setItem('daazDisplayPeriodo', p); }
+        function limparRankingDia() { if(confirm("TEM CERTEZA que deseja apagar todos os pontos de HOJE? Isso não afeta os outros filtros.")) enviarComando('limpar_diario'); }
+
+        function renderizarListaRoda(jogadores, dados) {
+            const container = document.getElementById('lista-jogadores-painel'); container.innerHTML = '';
+            if (jogadores.length === 0) { container.innerHTML = '<div style="text-align:center; color:#666; font-size:0.8rem; padding:10px;">Ninguém na plateia</div>'; return; }
+            jogadores.forEach(nick => {
+                let tk = 0; let colete = 0;
+                if (dados && dados[nick]) { tk = dados[nick].tickets?.reviver || 0; colete = dados[nick].colete || 0; }
+                let tkStr = tk > 0 ? `<span style="color:gold;font-size:0.8rem;margin-left:5px;">🎟️x${tk}</span>` : '';
+                let colStr = colete > 0 ? `<span style="color:#3498db;font-size:0.8rem;margin-left:5px;">🛡️x${colete}</span>` : '';
+                const div = document.createElement('div'); div.className = 'player-item';
+                div.innerHTML = `<span>${nick} ${tkStr} ${colStr}</span> <span class="btn-remove" onclick="removerManual('${nick}')">X</span>`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderizarEspectadores(espectadores, jogadores_roda) {
+            const container = document.getElementById('lista-espectadores'); container.innerHTML = '';
+            const chaves = Object.keys(espectadores);
+            if (chaves.length === 0) { container.innerHTML = '<div style="text-align:center; color:#666; font-size:0.8rem; padding:10px;">Nenhuma interação ainda</div>'; return; }
+            chaves.forEach(nick => {
+                if (!jogadores_roda.includes(nick)) {
+                    let div = document.createElement('div'); div.className = 'player-item';
+                    div.innerHTML = `<span><img src="${espectadores[nick]}" style="width:15px; border-radius:50%; vertical-align:middle; margin-right:5px;">${nick}</span> <span class="btn-add" onclick="adicionarDirecto('${nick}')">[+]</span>`;
+                    container.appendChild(div);
+                }
+            });
+        }
+
+        function filtrarListas() { let f = document.getElementById('filtro_jogadores').value.toUpperCase(); document.querySelectorAll('.caixa-lista .player-item').forEach(item => { item.style.display = item.querySelector('span').innerText.toUpperCase().includes(f) ? "flex" : "none"; }); }
+        function adicionarManual() { let input = document.getElementById('manual_nick'); if (input.value.trim()) { enviarComando('add_player', input.value.trim()); input.value = ''; } }
+        function adicionarDirecto(nick) { enviarComando('add_player', nick); }
+        function removerManual(nick) { enviarComando('remove_player', nick); }
+        function atualizarBotoesEcra(modoAtual) { document.querySelectorAll('.btn-modo').forEach(btn => btn.classList.remove('active')); const ativo = document.getElementById('btn_' + modoAtual); if(ativo) ativo.classList.add('active'); }
+
+        function salvarConfig(silencioso = false) {
+            let valTempo = parseInt(document.getElementById('tempo_rodada').value); if (isNaN(valTempo)) valTempo = 60;
+            let valTempoBomba = parseInt(document.getElementById('tempo_bomba_queda').value); if (isNaN(valTempoBomba)) valTempoBomba = 7;
+            let valVol = parseInt(document.getElementById('volume_explosao').value); if (isNaN(valVol)) valVol = 8;
+            let valTaps = parseInt(document.getElementById('taps_entrada').value); if (isNaN(valTaps)) valTaps = 0;
+
+            const config = {
+                tiktok_username: document.getElementById('tiktok_username').value,
+                modo_jogo: document.getElementById('modo_jogo').value,
+                tempo_rodada: valTempo,
+                presente_entrada: document.getElementById('pres_entrada').value,
+                presente_tempo: document.getElementById('pres_tempo').value,
+                presente_pular: document.getElementById('pres_pular').value,
+                presente_menos_tempo: document.getElementById('pres_menos_tempo').value,
+                presente_kick: document.getElementById('pres_kick').value,
+                presente_reviver: document.getElementById('pres_reviver').value,
+                presente_colete: document.getElementById('pres_colete').value,
+                presente_uma_bomba: document.getElementById('pres_uma_bomba').value,
+                presente_empurrar: document.getElementById('pres_empurrar').value,
+                entrar_por_join: document.getElementById('entrar_join').checked,
+                taps_entrada: valTaps,
+                tempo_bomba_queda: valTempoBomba,
+                volume_explosao: valVol / 100.0,
+                zoom_level: (parseInt(document.getElementById('zoom_jogo').value) || 100) / 100.0,
+                bg_type: currentBgType,
+                bg_value: currentBgValue
+            };
+            let cfgStr = JSON.stringify(config); localStorage.setItem('daazConfig', cfgStr); lastCfgStr = cfgStr;
+            enviarComando('update_bg');
+            if (!silencioso) alert("Configurações salvas!");
+        }
+
+        function iniciarJogo() {
+            const qtdJogadores = document.querySelectorAll('#lista-jogadores-painel .player-item').length;
+            if (qtdJogadores === 0) { alert("❌ ERRO: Adicione pelo menos 1 jogador na plateia para iniciar!"); return; }
+            enviarComando('start_game');
+        }
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Mude para as SUAS credenciais Firebase caso use uma base diferente para o daaz
+        const firebaseConfig = { apiKey: "AIzaSyB2LNWktWEwYLuZxwr8oc9NpcjFz3GU5qc", authDomain: "authrdm-a82a6.firebaseapp.com", databaseURL: "https://authrdm-a82a6-default-rtdb.firebaseio.com", projectId: "authrdm-a82a6" };
+        const app = initializeApp(firebaseConfig); const db = getDatabase(app);
+
+        // Intercepta as funções para disparar para a Nuvem Firebase
+        const originalSalvar = window.salvarConfig;
+        window.salvarConfig = function(silencioso = false) {
+            originalSalvar(silencioso);
+            const rdmUser = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user') || "visitante";
+            let configStr = localStorage.getItem('daazConfig');
+            if(configStr) set(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_config`), JSON.parse(configStr));
+        };
+
+        const originalEnviar = window.enviarComando;
+        window.enviarComando = function(action, value = null) {
+            originalEnviar(action, value);
+            const rdmUser = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user') || "visitante";
+            set(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_comando`), { ts: Date.now(), action: action, value: value });
+
+            if (action === 'limpar_diario') {
+                let rStr = localStorage.getItem('daazRankings');
+                if (rStr) set(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_rankings`), JSON.parse(rStr));
+            }
+        };
+    </script>
+</body>
+</html>

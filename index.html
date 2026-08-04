@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>DAAZ - Tela</title>
+    <style>
+        body { background-color: #1a1a24; background-size: cover; background-position: center; overflow: hidden; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; transition: background 0.5s ease;}
+
+        .aguardando { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #fff; font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px black; z-index: 10;}
+
+        #overlay-countdown {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.7); z-index: 1000;
+            display: none; justify-content: center; align-items: center;
+            font-size: 15rem; font-weight: 900; color: #f39c12;
+            text-shadow: 0 0 40px #f39c12, 0 0 10px #fff;
+            animation: pulseCount 0.5s infinite alternate;
+            text-transform: uppercase;
+        }
+        @keyframes pulseCount { from { transform: scale(1); } to { transform: scale(1.15); } }
+
+        #game-view { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; overflow: hidden; cursor: grab; }
+        #game-view:active { cursor: grabbing; }
+        #game-zoom-area { width: 100%; height: 100%; position: absolute; top: 0; left: 0; transform-origin: top center; transition: transform 0.2s ease-out; }
+
+        #palavras-top-container {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+            width: 90%; max-height: 25%; overflow-y: hidden; z-index: 50;
+        }
+        .palavra-pill {
+            background: rgba(0,0,0,0.8); border: 2px solid #2ed573; border-radius: 20px;
+            display: flex; align-items: center; padding: 5px 15px 5px 5px; gap: 10px;
+            animation: popIn 0.3s ease-out;
+            box-shadow: 0 4px 10px rgba(46, 213, 115, 0.4);
+        }
+        .palavra-pill img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+        .palavra-pill span { color: white; font-weight: bold; font-size: 1.2rem; }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+
+        .roda-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;}
+        .player-roda-container { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; transition: left 0.5s ease, top 0.5s ease; pointer-events: auto; }
+        .avatar-roda { width: 55px; height: 55px; border-radius: 50%; border: 3px solid #555; object-fit: cover; background-color: #222; transition: all 0.3s; }
+
+        .nome-roda-container { display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); border: 1px solid #30363d; border-radius: 8px; padding: 2px 6px; margin-top: 5px; pointer-events: none; }
+        .nome-texto { color: white; font-size: 0.7rem; font-weight: bold; max-width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+        .ticket-badge { color: gold; font-size: 0.75rem; font-weight: bold; margin-left: 4px; flex-shrink: 0; text-shadow: 0 0 5px gold; }
+        .colete-badge { color: #3498db; font-size: 0.75rem; font-weight: bold; margin-left: 4px; flex-shrink: 0; text-shadow: 0 0 5px #3498db; }
+
+        .centro-bomba { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; display: flex; flex-direction: column; align-items: center;}
+        .categoria-display { background: rgba(0, 0, 0, 0.85); color: #f39c12; padding: 5px 25px; border-radius: 8px; font-size: 1.5rem; font-weight: bold; margin-bottom: 5px; border: 1px solid #f39c12; text-transform: uppercase; box-shadow: 0 0 10px rgba(243, 156, 18, 0.5); pointer-events: none;}
+        .silaba-display { background: rgba(9, 50, 125, 0.85); padding: 10px 40px; border-radius: 12px; font-size: 4rem; font-weight: 900; letter-spacing: 2px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); text-transform: uppercase; border: 2px solid #3498db; backdrop-filter: blur(5px); margin-bottom: 12px; pointer-events: none;}
+        .tempo-restante { font-size: 4rem; color: #f39c12; font-weight: 900; margin-top: 10px; text-shadow: 0 0 15px rgba(243, 156, 18, 0.8); pointer-events: none;}
+
+        .explosao-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(circle, rgba(255,71,87,0.8) 0%, rgba(0,0,0,0) 80%); opacity: 0; pointer-events: none; z-index: 50; transition: opacity 0.2s;}
+        .avatar-boom-center { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0.1); font-size: 180px; z-index: 999; pointer-events: none; animation: centerBoom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; filter: drop-shadow(0 0 30px rgba(255, 69, 0, 1)); }
+        @keyframes centerBoom { 0% { transform: translate(-50%, -50%) scale(0.1) rotate(-20deg); opacity: 1; } 50% { transform: translate(-50%, -50%) scale(2.5) rotate(10deg); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(3.5) rotate(20deg); opacity: 0; } }
+
+        .tela-vencedor { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); z-index: 900; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+        .tela-vencedor.show { opacity: 1; pointer-events: auto; }
+        .titulo-vencedor { font-size: 5rem; color: gold; font-weight: 900; margin-bottom: 20px; text-shadow: 0 0 20px gold, 0 0 40px darkgoldenrod; text-transform: uppercase; animation: bounce 1s infinite alternate; text-align: center;}
+        .vencedor-avatar { width: 180px; height: 180px; border-radius: 50%; border: 8px solid gold; box-shadow: 0 0 30px gold; object-fit: cover; margin-bottom: 15px; }
+        .vencedor-nick { font-size: 2.5rem; font-weight: bold; background: #111; padding: 10px 30px; border-radius: 20px; border: 2px solid gold; margin-bottom: 30px; text-align: center; }
+        .vencedor-stats { display: flex; gap: 40px; text-align: center; }
+        .stat-box { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); min-width: 200px; max-width: 400px; }
+        .stat-box h3 { margin: 0 0 10px 0; color: #2ed573; font-size: 1.5rem; }
+        .stat-box p { margin: 0; font-size: 1.2rem; font-weight: bold; word-wrap: break-word; }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+
+        .aviso-popup { position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 71, 87, 0.95); color: white; padding: 15px 40px; border-radius: 12px; font-size: 2rem; font-weight: 900; letter-spacing: 2px; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s; border: 3px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-transform: uppercase; }
+
+        #ranking-view { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; z-index: 800; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); }
+        .ranking-title { font-size: 4rem; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; text-shadow: 0 0 20px rgba(255,255,255,0.5); display: flex; align-items: center; gap: 20px; }
+        .ranking-subtitle { font-size: 1.5rem; font-weight: bold; color: #f39c12; margin-bottom: 25px; background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; border: 1px solid #f39c12;}
+        .ranking-list { background: rgba(20, 25, 35, 0.9); border: 2px solid #444; border-radius: 20px; width: 80%; max-width: 800px; padding: 20px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+        .rank-item { display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 15px 25px; border-radius: 12px; border-left: 5px solid transparent; transition: transform 0.2s; }
+        .rank-item:hover { transform: scale(1.02); background: rgba(255,255,255,0.1); }
+        .rank-pos { font-size: 2rem; font-weight: 900; width: 50px; text-align: center; color: #888; }
+        .rank-item.pos-1 { border-left-color: gold; background: linear-gradient(90deg, rgba(255,215,0,0.2) 0%, rgba(0,0,0,0) 100%); }
+        .rank-item.pos-1 .rank-pos { color: gold; }
+        .rank-item.pos-2 { border-left-color: silver; }
+        .rank-item.pos-2 .rank-pos { color: silver; }
+        .rank-item.pos-3 { border-left-color: #cd7f32; }
+        .rank-item.pos-3 .rank-pos { color: #cd7f32; }
+        .rank-name { flex: 1; font-size: 1.8rem; font-weight: bold; margin-left: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rank-score { font-size: 2rem; font-weight: 900; color: #f39c12; }
+
+        /* --- ESTILOS DA BOMBA CAINDO --- */
+        .bomba-wrapper {
+            position: absolute; top: -35px; left: 50%;
+            display: flex; flex-direction: column; align-items: center;
+            z-index: 50; pointer-events: none;
+            /* Animação espetacular elástica de queda */
+            animation: cairDoCeu 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .bomba-icone { font-size: 2.5rem; animation: tremerBomba 0.15s infinite alternate; filter: drop-shadow(0 0 10px #ff4757); margin-bottom: -15px; }
+        .bomba-timer { font-size: 1.5rem; font-weight: 900; color: white; text-shadow: 0 0 5px #ff4757, 0 0 10px black; z-index: 51; }
+
+        @keyframes cairDoCeu {
+            0% { transform: translate(-50%, -600px) scale(2) rotate(45deg); opacity: 0; }
+            50% { opacity: 1; filter: brightness(2); }
+            100% { transform: translate(-50%, 0) scale(1) rotate(0deg); filter: brightness(1); }
+        }
+        @keyframes tremerBomba { 0% { transform: scale(1) rotate(-15deg); } 100% { transform: scale(1.15) rotate(15deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="overlay-countdown">5</div>
+
+    <div class="explosao-overlay" id="flash-explosao"></div>
+    <div class="aviso-popup" id="aviso-popup">JÁ USADA!</div>
+
+    <div class="tela-vencedor" id="tela-vencedor">
+        <div class="titulo-vencedor" id="titulo-vencedor">🏆 CAMPEÃO! 🏆</div>
+        <img id="vencedor-avatar" class="vencedor-avatar" src="">
+        <div class="vencedor-nick" id="vencedor-nick">...</div>
+        <div class="vencedor-stats" id="vencedor-stats">
+            <div class="stat-box">
+                <h3 style="color: #f39c12;">⏱️ Tempo Sobrevivido</h3>
+                <p id="vencedor-tempo">0s</p>
+            </div>
+            <div class="stat-box">
+                <h3>🧠 Palavras Acertadas</h3>
+                <p id="vencedor-palavras" style="font-size: 1rem; color: #ccc;">Nenhuma</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="ranking-view">
+        <div class="ranking-title" id="ranking-title">🏆 TOP JOGADORES 🏆</div>
+        <div class="ranking-subtitle" id="ranking-subtitle">PERÍODO</div>
+        <div class="ranking-list" id="ranking-list"></div>
+    </div>
+
+    <div id="game-view">
+        <div id="game-zoom-area">
+
+            <div id="palavras-top-container"></div>
+
+            <div class="aguardando" id="msg-aguardando">Aguardando jogadores... Envie um presente para entrar!</div>
+            <div class="roda-container" id="roda" style="z-index: 5;"></div>
+
+            <div class="centro-bomba" id="centro" style="display:none;">
+                <div class="categoria-display" id="categoria-texto" style="display:none;">CATEGORIA</div>
+                <div class="tempo-restante" id="tempo">60s</div>
+            </div>
+            <!-- NOVO: Container absoluto da plateia que ocupa a tela toda, mas não bloqueia o clique -->
+            <div id="plateia-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+        </div>
+    </div>
+
+    <button onclick="document.getElementById('hud-janela-painel').style.display='flex'" style="position: absolute; top: 15px; left: 15px; z-index: 1500; background: #3498db; color: white; border: 2px solid #fff; padding: 10px 15px; font-weight: bold; border-radius: 5px; cursor: pointer; box-shadow: 0 0 10px rgba(52, 152, 219, 0.8); opacity: 0.5; transition: opacity 0.2s;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">⚙️ PAINEL</button>
+
+    <div id="hud-janela-painel" style="position: absolute; top: 60px; left: 15px; width: calc(100vw - 30px); max-width: 450px; height: 85vh; background: rgba(13, 17, 23, 0.95); border: 2px solid #3498db; border-radius: 10px; z-index: 2000; display: none; flex-direction: column; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
+        <div style="background: #3498db; padding: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 5px;">
+            <span>⚙️ Controle Host</span>
+            <div style="display: flex; gap: 5px;">
+                <button onclick="window.open('Painel_do_Host.html', '_blank'); document.getElementById('hud-janela-painel').style.display='none';" style="background: #2c3e50; border: none; color: white; padding: 5px 10px; cursor: pointer; border-radius: 5px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">↗️ Abrir Aba</button>
+                <button onclick="document.getElementById('hud-janela-painel').style.display='none'" style="background: #ff4757; border: none; color: white; padding: 5px 15px; cursor: pointer; border-radius: 5px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">X</button>
+            </div>
+        </div>
+        <iframe src="Painel_do_Host.html" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+
+    <script>
+
+        // 🔗 INTEGRAÇÃO OBS / RDM STUDIO: Lê os dados do link se existirem
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('u') && urlParams.has('p')) {
+            localStorage.setItem('rdm_user', urlParams.get('u'));
+            localStorage.setItem('rdm_perfil', urlParams.get('p'));
+        }
+
+        // 🛡️ TRAVA RDM STUDIO: Verifica a licença no momento que o jogo abre
+        window.rdmUser = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user');
+        window.rdmPerfil = localStorage.getItem('rdm_perfil');
+
+        if (!window.rdmUser || !window.rdmPerfil) {
+            document.body.innerHTML = "<div style='display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#000;'><h1 style='color:#ef4444; text-shadow:0 0 20px #ef4444;'>ACESSO NEGADO</h1><p style='color:#ccc; font-size:20px;'>Você precisa estar logado na RDM Studio para jogar.</p></div>";
+            window.stop(); // Trava tudo e impede o jogo de carregar
+        }
+
+        // ⚡ DESPERTADOR DA API (Acorda o servidor Render imediatamente em background)
+        fetch("https://torre-de-controle-rdm.onrender.com/", { mode: 'no-cors' }).catch(() => {});
+        // -------------------------------------------
+
+        // --- MOTOR WEB daaz (Substitui o Python) ---
+        let dicionarioCategorias = {};
+        let dicionarioGlobal = new Set(["ABRE", "FEBRE", "BREVE", "COBRE", "SOBRE", "TRABALHO", "ANIMAL"]);
+
+        async function carregarDicionarios() {
+            const arquivos = ['palavras_categorizadas.json', 'stop_game_database.json'];
+            for(let arq of arquivos) {
+                try {
+                    let res = await fetch(arq);
+                    if (res.ok) {
+                        let dados = await res.json();
+                        for (let cat in dados) {
+                            let catLimpa = cat.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+                            if (!dicionarioCategorias[catLimpa]) dicionarioCategorias[catLimpa] = {};
+                            for (let p of dados[cat]) {
+                                let pLimpa = p.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+                                if(pLimpa && pLimpa.length > 0) {
+                                    let letra = pLimpa[0];
+                                    if(!dicionarioCategorias[catLimpa][letra]) dicionarioCategorias[catLimpa][letra] = new Set();
+                                    dicionarioCategorias[catLimpa][letra].add(pLimpa);
+                                }
+                            }
+                        }
+                    }
+                } catch(e) { console.log("Aviso: Falha ao ler " + arq); }
+            }
+        }
+        carregarDicionarios();
+
+        let jogo = {
+            ativo: false, iniciando: false, jogadores_plateia: [], dados_jogadores: {},
+            categoria_atual: "GERAL",
+            palavras_usadas: [], tempo_restante: 0, tempo_rodada_atual: 60, tempo_inicio: 0, lastCmdTs: 0,
+            bombas_ativas: {}, acertos_rodada: [], palavras_display: [], config: {},
+            // NOVO: Controle das 26 letras
+            alfabeto_estado: {
+                A: null, B: null, C: null, D: null, E: null, F: null, G: null, H: null, I: null,
+                J: null, K: null, L: null, M: null, N: null, O: null, P: null, Q: null, R: null,
+                S: null, T: null, U: null, V: null, W: null, X: null, Y: null, Z: null
+            }
+        };
+        let espectadoresRecentes = {};
+
+        function atualizarConfig() { let cfgStr = localStorage.getItem('daazConfig'); if(cfgStr) jogo.config = JSON.parse(cfgStr); }
+        atualizarConfig(); setInterval(atualizarConfig, 1000);
+
+        setInterval(() => {
+            localStorage.setItem('daazState', JSON.stringify({ jogadores: jogo.jogadores_plateia, espectadores: espectadoresRecentes, dados_jogadores: jogo.dados_jogadores, display_mode: jogo.display_mode, display_periodo: jogo.display_periodo }));
+        }, 1000);
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        let lastTempo = -1;
+        let posicoesFixas = {};
+        let posicoesPlateia = {}; // Guarda o X e Y aleatório de cada jogador da plateia
+        let jogoEstavaAtivo = false;
+        let palavrasAtuaisStr = "";
+
+        // VARIÁVEIS DE ZOOM E ARRASTO
+        let zoomLevel = 1.0;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX, startY;
+
+        const gameView = document.getElementById('game-view');
+        const zoomArea = document.getElementById('game-zoom-area');
+
+        function updateTransform() {
+            zoomArea.style.transform = `translate(${translateX}px, ${translateY}px) scale(${zoomLevel})`;
+        }
+
+        gameView.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        window.addEventListener('wheel', (e) => {
+            if (gameView.style.display !== 'none') {
+                e.preventDefault();
+                if (e.deltaY < 0) { zoomLevel = Math.min(zoomLevel + 0.1, 3.0); }
+                else { zoomLevel = Math.max(zoomLevel - 0.1, 0.4); }
+                updateTransform();
+            }
+        }, { passive: false });
+
+        const audioExplosaoMp3 = new Audio('explosion.mp3');
+        audioExplosaoMp3.volume = 0.08;
+
+        function playTick(freq) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playError() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playVictory() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, now + i * 0.15);
+                gain.gain.linearRampToValueAtTime(0.3, now + i * 0.15 + 0.05);
+                gain.gain.linearRampToValueAtTime(0, now + i * 0.15 + 0.4);
+                osc.start(now + i * 0.15); osc.stop(now + i * 0.15 + 0.4);
+            });
+        }
+
+        function playExplosionFlash() {
+            const flash = document.getElementById('flash-explosao');
+            flash.style.opacity = '1';
+            setTimeout(() => flash.style.opacity = '0', 300);
+        }
+
+        function spawnCenterExplosion() {
+            audioExplosaoMp3.currentTime = 0;
+            audioExplosaoMp3.play().catch(e => console.log("Erro mp3: ", e));
+            const boom = document.createElement('div');
+            boom.className = 'avatar-boom-center';
+            boom.innerText = '💥';
+            document.body.appendChild(boom);
+
+            const centroX = (window.innerWidth / 2) + translateX;
+            const centroY = (window.innerHeight * 0.38) + translateY;
+            boom.style.left = centroX + 'px';
+            boom.style.top = centroY + 'px';
+            boom.style.transform = `translate(-50%, -50%) scale(${zoomLevel * 0.1})`;
+
+            const centro = document.getElementById('centro');
+            centro.style.transform = "translate(-50%, -50%) scale(1.15)";
+            setTimeout(() => centro.style.transform = "translate(-50%, -50%) scale(1)", 150);
+            setTimeout(() => boom.remove(), 800);
+        }
+
+
+        function exibirVencedor(dados) {
+            playVictory();
+            document.getElementById('game-view').style.display = 'block';
+            document.getElementById('ranking-view').style.display = 'none';
+            document.getElementById('centro').style.display = 'none';
+            document.getElementById('categoria-texto').style.display = 'none';
+            document.getElementById('msg-aguardando').style.display = 'none';
+            document.getElementById('palavras-top-container').innerHTML = '';
+
+            const tela = document.getElementById('tela-vencedor');
+
+            if (dados) {
+                document.getElementById('titulo-vencedor').innerText = "🏆 CAMPEÃO! 🏆";
+                document.getElementById('titulo-vencedor').style.color = "gold";
+                document.getElementById('vencedor-avatar').style.display = 'block';
+                document.getElementById('vencedor-avatar').src = dados.avatar;
+                document.getElementById('vencedor-nick').innerText = dados.nick;
+                document.getElementById('vencedor-stats').style.display = 'flex';
+
+                const min = Math.floor(dados.tempo / 60);
+                const seg = dados.tempo % 60;
+                document.getElementById('vencedor-tempo').innerText = min > 0 ? `${min}m ${seg}s` : `${seg}s`;
+                const palavras = dados.palavras && dados.palavras.length > 0 ? dados.palavras.join(', ') : 'Nenhuma';
+                document.getElementById('vencedor-palavras').innerText = palavras;
+            } else {
+                document.getElementById('titulo-vencedor').innerText = "💀 FIM DE JOGO 💀";
+                document.getElementById('titulo-vencedor').style.color = "#ff4757";
+                document.getElementById('vencedor-avatar').style.display = 'none';
+                document.getElementById('vencedor-nick').innerText = "Gente, vamos melhorar... Ninguém ganhou!";
+                document.getElementById('vencedor-stats').style.display = 'none';
+            }
+
+            tela.classList.add('show');
+
+            translateX = 0;
+            translateY = 0;
+            zoomLevel = 1.0;
+            updateTransform();
+
+            setTimeout(() => {
+                tela.classList.remove('show');
+                document.getElementById('msg-aguardando').style.display = 'block';
+            }, 8000);
+        }
+
+        function renderizarRankingUI(titulo, dicionarioDados, corScore, sulfixo, periodoTexto) {
+            document.getElementById('game-view').style.display = 'none';
+            document.getElementById('ranking-view').style.display = 'flex';
+            document.getElementById('ranking-title').innerHTML = titulo;
+            document.getElementById('ranking-subtitle').innerText = periodoTexto;
+
+            const lista = document.getElementById('ranking-list');
+            lista.innerHTML = '';
+
+            const arrayOrdenado = Object.entries(dicionarioDados).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+            if (arrayOrdenado.length === 0) {
+                lista.innerHTML = '<div style="text-align:center; padding: 40px; font-size: 2rem; color: #888;">Ainda não há registos!</div>';
+                return;
+            }
+
+            arrayOrdenado.forEach((item, index) => {
+                const nick = item[0];
+                const score = item[1];
+                const pos = index + 1;
+
+                const div = document.createElement('div');
+                div.className = `rank-item pos-${pos}`;
+
+                let medalha = pos;
+                if(pos===1) medalha = '🥇';
+                if(pos===2) medalha = '🥈';
+                if(pos===3) medalha = '🥉';
+
+                div.innerHTML = `
+                    <div class="rank-pos">${medalha}</div>
+                    <div class="rank-name">${nick}</div>
+                    <div class="rank-score" style="color: ${corScore}">${score} ${sulfixo}</div>
+                `;
+                lista.appendChild(div);
+            });
+        }
+
+        function calculateAlphabetPositions() {
+            const posData = {};
+            const alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            // Define o tamanho do círculo (ajuste os multiplicadores se quiser maior ou menor)
+            const raioX = width * 0.40;
+            const raioY = height * 0.40;
+            const centroX = width / 2;
+            const centroY = height / 2;
+
+            alfabeto.forEach((letra, idx) => {
+                // Calcula o ângulo para distribuir as 26 letras perfeitamente
+                const angulo = (idx / 26) * (2 * Math.PI) - (Math.PI / 2); // Começa no topo (12h)
+                const x = centroX + raioX * Math.cos(angulo);
+                const y = centroY + raioY * Math.sin(angulo);
+
+                posData[letra] = { x, y };
+            });
+            return posData;
+        }
+
+        function renderizarPalavras(palavrasObj) {
+            const container = document.getElementById('palavras-top-container');
+            const novaStr = JSON.stringify(palavrasObj);
+
+            if(novaStr !== palavrasAtuaisStr) {
+                container.innerHTML = '';
+                palavrasObj.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'palavra-pill';
+                    div.innerHTML = `<img src="${p.avatar}"><span>${p.palavra}</span>`;
+                    container.appendChild(div);
+                });
+                palavrasAtuaisStr = novaStr;
+            }
+        }
+
+        function dispararEfeito(tipo, dados) {
+            if (tipo === 'explosao_avatar') { spawnCenterExplosion(); return; }
+            if (tipo === 'game_over') { exibirVencedor(dados); return; }
+            if (tipo === 'aviso') {
+                const aviso = document.getElementById('aviso-popup');
+                aviso.innerText = dados; aviso.style.opacity = '1';
+                if(dados.includes("JÁ USADA") || dados.includes("CURTA") || dados.includes("NÃO EXISTE") || dados.includes("REPETID")) playError();
+                setTimeout(() => { aviso.style.opacity = '0'; }, 2500);
+                return;
+            }
+            if (tipo === 'countdown') {
+                const ov = document.getElementById('overlay-countdown');
+                ov.style.display = 'flex'; ov.innerText = dados;
+                if(dados === "BORAAAA!") {
+                    playTick(1000); setTimeout(() => playTick(1200), 150);
+                    setTimeout(() => { ov.style.display = 'none'; }, 1000);
+                } else { playTick(600); }
+                return;
+            }
+        }
+
+        function atualizarTela() {
+            if (jogo.config.zoom_level !== undefined) {
+                zoomLevel = jogo.config.zoom_level;
+                updateTransform();
+            }
+
+            let rStr = localStorage.getItem('daazRankings');
+            let rData = rStr ? JSON.parse(rStr) : {diario:{vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, semanal:{vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, mensal:{vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, geral:{vitorias:{}, palavras:{}, heroi:{}, vilao:{}}};
+            const per = jogo.display_periodo || "diario";
+
+            let nomePer = "RANKING DE HOJE";
+            if(per === "semanal") nomePer = "RANKING DA SEMANA";
+            if(per === "mensal") nomePer = "RANKING DESTE MÊS";
+            if(per === "geral") nomePer = "RANKING GERAL (HISTÓRICO)";
+
+            const dataDict = rData[per] || {vitorias: {}, palavras: {}, heroi: {}, vilao: {}};
+
+            if (jogo.config.volume_explosao !== undefined) audioExplosaoMp3.volume = jogo.config.volume_explosao;
+            if (jogo.config.bg_type === 'color') {
+                document.body.style.backgroundImage = 'none'; document.body.style.backgroundColor = jogo.config.bg_value;
+            } else if (jogo.config.bg_type === 'image' && jogo.config.bg_value.startsWith('data:image')) {
+                document.body.style.backgroundColor = 'transparent'; document.body.style.backgroundImage = `url('${jogo.config.bg_value}')`;
+            }
+
+            const telaVencedorAtiva = document.getElementById('tela-vencedor').classList.contains('show');
+            if (telaVencedorAtiva) return;
+
+            if (jogo.display_mode !== 'game' && jogo.display_mode !== undefined) {
+                if (jogo.display_mode === 'rank_vitorias') renderizarRankingUI("🏆 TOP VITÓRIAS", dataDict.vitorias, "gold", "Vitórias", nomePer);
+                if (jogo.display_mode === 'rank_palavras') renderizarRankingUI("🧠 MESTRES", dataDict.palavras, "#2ed573", "Acertos", nomePer);
+                if (jogo.display_mode === 'rank_heroi') renderizarRankingUI("🦸‍♂️ MAIORES HERÓIS", dataDict.heroi, "#3498db", "Salvamentos", nomePer);
+                if (jogo.display_mode === 'rank_vilao') renderizarRankingUI("🦹‍♂️ MAIORES VILÕES", dataDict.vilao, "#ff4757", "Ataques", nomePer);
+                return;
+            }
+
+            document.getElementById('ranking-view').style.display = 'none';
+            document.getElementById('game-view').style.display = 'block';
+
+            if (jogo.ativo && !jogoEstavaAtivo) { posicoesFixas = calculateAlphabetPositions(); jogoEstavaAtivo = true; }
+            else if (!jogo.ativo && jogoEstavaAtivo) { jogoEstavaAtivo = false; }
+
+            if (jogo.ativo && jogo.tempo_restante !== lastTempo) {
+                lastTempo = jogo.tempo_restante;
+                if (jogo.tempo_restante > 0) {
+                    playTick(600);
+                    if (jogo.tempo_restante <= 10) setTimeout(() => playTick(800), 500);
+                    if (jogo.tempo_restante <= 5) { setTimeout(() => playTick(1000), 250); setTimeout(() => playTick(1000), 750); }
+                } else if (jogo.tempo_restante === 0) { playExplosionFlash(); }
+            } else if (!jogo.ativo) { lastTempo = -1; }
+
+            renderizarRoda(jogo, jogo.dados_jogadores);
+            renderizarPlateia(jogo, jogo.dados_jogadores); // NOVO: Renderiza a plateia no centro
+
+            if (jogo.ativo) { renderizarPalavras(jogo.palavras_display); }
+            else { document.getElementById('palavras-top-container').innerHTML = ''; palavrasAtuaisStr = ""; }
+
+            if (jogo.ativo && jogo.jogadores_plateia.length > 0) {
+                document.getElementById('msg-aguardando').style.display = 'none';
+                document.getElementById('centro').style.display = 'flex';
+                document.getElementById('categoria-texto').style.display = 'block';
+                document.getElementById('categoria-texto').innerText = jogo.categoria_atual;
+
+                document.getElementById('tempo').innerText = jogo.tempo_restante + 's';
+                document.getElementById('tempo').style.fontSize = '4rem'; // Retorna tamanho normal
+
+                if (jogo.tempo_restante <= 10) {
+                    document.getElementById('tempo').style.color = '#ff4757'; document.getElementById('tempo').style.textShadow = '0 0 15px rgba(255, 71, 87, 0.9)';
+                } else {
+                    document.getElementById('tempo').style.color = '#f39c12'; document.getElementById('tempo').style.textShadow = '0 0 10px rgba(243, 156, 18, 0.8)';
+                }
+            } else {
+                // Oculta o painel central durante o lobby.
+                document.getElementById('centro').style.display = 'none';
+                document.getElementById('categoria-texto').style.display = 'none';
+                // Oculta o aviso gigante se já houver jogadores na plateia
+                document.getElementById('msg-aguardando').style.display = (jogo.iniciando || jogo.jogadores_plateia.length > 0) ? 'none' : 'block';
+            }
+        }
+
+        function sortearDesafio() {
+            // Limpa o alfabeto no início da rodada
+            for (let letra in jogo.alfabeto_estado) {
+                jogo.alfabeto_estado[letra] = null;
+            }
+
+            jogo.tipo_desafio = "letra_categoria";
+            let categoriasDisponiveis = Object.keys(dicionarioCategorias);
+
+            if (categoriasDisponiveis.length > 0) {
+                jogo.categoria_atual = categoriasDisponiveis[Math.floor(Math.random() * categoriasDisponiveis.length)];
+            } else {
+                jogo.categoria_atual = "GERAL";
+            }
+            jogo.silaba_atual = ""; // Não é mais exibido
+
+            jogo.palavras_usadas = [];
+            jogo.acertos_rodada = []; // Lista de quem já pegou alguma letra na rodada
+            jogo.palavras_display = [];
+            jogo.tempo_restante = jogo.tempo_rodada_atual;
+        }
+
+        async function iniciarComContagem() {
+            jogo.iniciando = true; jogo.qnt_inicial = jogo.jogadores_plateia.length; atualizarTela();
+            for (let i = 5; i > 0; i--) { dispararEfeito('countdown', i.toString()); await new Promise(r => setTimeout(r, 1000)); }
+            dispararEfeito('countdown', "BORAAAA!"); await new Promise(r => setTimeout(r, 1000));
+
+            jogo.ativo = true; jogo.iniciando = false; jogo.turno_atual = 0; jogo.tempo_inicio = Date.now();
+            jogo.tempo_rodada_atual = parseInt(jogo.config.tempo_rodada) || 60;
+            jogo.acertos_rodada = []; jogo.palavras_display = []; jogo.combos_usados = [];
+            sortearDesafio(); atualizarTela();
+        }
+
+        function avancarRodada() {
+            // Quem NÃO pegou letra explode
+            let eliminados = jogo.jogadores_plateia.filter(p => !jogo.acertos_rodada.includes(p));
+            eliminados.forEach(e => { dispararEfeito('explosao_avatar', null); });
+
+            // Sobreviventes voltam para a plateia
+            jogo.jogadores_plateia = jogo.jogadores_plateia.filter(p => jogo.acertos_rodada.includes(p));
+            let qtd_atual = jogo.jogadores_plateia.length;
+
+            if (qtd_atual === 0 || (qtd_atual === 1 && (jogo.qnt_inicial || 2) > 1)) {
+                jogo.ativo = false; jogo.iniciando = false;
+                let vencedor = jogo.jogadores_plateia[0] || null;
+
+                // Zera as letras para o vencedor voltar limpo pra plateia na próxima partida
+                for (let letra in jogo.alfabeto_estado) { jogo.alfabeto_estado[letra] = null; }
+                jogo.acertos_rodada = [];
+
+                if (vencedor) {
+                    let d = { nick: vencedor, avatar: jogo.dados_jogadores[vencedor].avatar, tempo: Math.floor((Date.now() - jogo.tempo_inicio)/1000), palavras: jogo.dados_jogadores[vencedor].acertos_lista || [] };
+                    dispararEfeito('game_over', d);
+                } else { dispararEfeito('game_over', null); }
+            } else {
+                // O jogo continua, novo tema é sorteado
+                if (jogo.tempo_rodada_atual > 10) jogo.tempo_rodada_atual -= 10;
+                else if (jogo.tempo_rodada_atual > 5) jogo.tempo_rodada_atual -= 1;
+                sortearDesafio();
+            }
+            atualizarTela();
+        }
+
+        // --- RELÓGIO GERAL (O MOTOR DO daaz) ---
+        setInterval(() => {
+            // ⏱️ CHECAGEM DE LICENÇA EM TEMPO REAL RDM
+            if (window.rdmPerfil === "gratuito" || window.rdmPerfil === "plus premium") {
+                let horaAtual = Date.now();
+                if (!window.rdmSessaoIniciada) window.rdmSessaoIniciada = horaAtual;
+
+                let tempoDecorridoMs = horaAtual - window.rdmSessaoIniciada;
+                let limiteMs = (window.rdmPerfil === "gratuito") ? (2 * 60 * 60 * 1000) : (42 * 60 * 60 * 1000);
+
+                if (tempoDecorridoMs >= limiteMs) {
+                    jogo.ativo = false;
+                    jogo.jogadores_plateia = [];
+                    atualizarTela();
+
+                    let blockScreen = document.getElementById('rdm-block-screen');
+                    if (!blockScreen) {
+                        blockScreen = document.createElement('div');
+                        blockScreen.id = 'rdm-block-screen';
+                        blockScreen.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.95); z-index:9999; display:flex; flex-direction:column; justify-content:center; align-items:center;';
+                        blockScreen.innerHTML = `<h1 style='color:#facc15; font-size:40px; text-shadow:0 0 20px #facc15;'>⏱️ TEMPO ESGOTADO!</h1><p style='color:white; font-size:20px;'>A carga de horas do seu plano atual chegou ao fim. Faça um upgrade no site RDM Studio.</p>`;
+                        document.body.appendChild(blockScreen);
+                        if (wsNuvem) wsNuvem.close(); // Corta a conexão
+                        if (wsTikfinity) wsTikfinity.close();
+                    }
+                    return; // Congela o relógio
+                }
+            }
+
+            let cmdStr = localStorage.getItem('daazCommand');
+            if (cmdStr) {
+                let cmd = JSON.parse(cmdStr);
+                if (cmd.ts !== jogo.lastCmdTs) {
+                    jogo.lastCmdTs = cmd.ts;
+                    if (cmd.action === 'display_mode') { jogo.display_mode = cmd.value; atualizarTela(); }
+                    if (cmd.action === 'display_periodo') { jogo.display_periodo = cmd.value; atualizarTela(); }
+                    if (cmd.action === 'update_bg') { atualizarConfig(); atualizarTela(); }
+                    if (cmd.action === 'add_player' && !jogo.jogadores_plateia.includes(cmd.value)) {
+                        if(!jogo.dados_jogadores[cmd.value]) jogo.dados_jogadores[cmd.value] = { avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${cmd.value}`, coins: 0 };
+                        jogo.jogadores_plateia.push(cmd.value); atualizarTela();
+                    }
+                    if (cmd.action === 'remove_player' && jogo.jogadores_plateia.includes(cmd.value)) {
+                        jogo.jogadores_plateia = jogo.jogadores_plateia.filter(n => n !== cmd.value);
+                        let qtd_atual = jogo.jogadores_plateia.length;
+                        if (jogo.ativo && (qtd_atual === 0 || (qtd_atual === 1 && (jogo.qnt_inicial || 2) > 1))) {
+                            jogo.ativo = false; jogo.iniciando = false; dispararEfeito('game_over', null);
+                        }
+                        atualizarTela();
+                    }
+                    if (cmd.action === 'start_game' && jogo.jogadores_plateia.length > 0 && !jogo.ativo && !jogo.iniciando) iniciarComContagem();
+                }
+            }
+
+            if (jogo.ativo && jogo.jogadores_plateia.length > 0) {
+                // GATILHO DE PULO: Se todos acertaram ou o alfabeto lotou, o relógio cai para 1 segundo
+                let faltamAcertar = jogo.jogadores_plateia.filter(p => !jogo.acertos_rodada.includes(p)).length;
+                let letrasOcupadas = Object.values(jogo.alfabeto_estado).filter(v => v !== null).length;
+                if (faltamAcertar === 0 || letrasOcupadas >= 26) {
+                    if (jogo.tempo_restante > 1) {
+                        jogo.tempo_restante = 1; // Esmaga o relógio para 1s
+                    }
+                }
+
+                jogo.tempo_restante--;
+
+                // FIM DA RODADA POR TEMPO
+                if (jogo.tempo_restante <= 0) {
+                    avancarRodada();
+                    return; // Para o relógio instantaneamente neste segundo
+                }
+
+                // CONTROLE DE BOMBAS EXPLODINDO DURANTE A RODADA
+                let bombas_remover = [];
+                for (let alvo in jogo.bombas_ativas) {
+                    jogo.bombas_ativas[alvo]--;
+                    if (jogo.bombas_ativas[alvo] <= 0) {
+                        let col = jogo.dados_jogadores[alvo]?.colete || 0;
+                        if (col > 0) {
+                            jogo.dados_jogadores[alvo].colete--;
+                            dispararEfeito('aviso', `🛡️ ${alvo} DEFENDEU A BOMBA!`);
+                        } else {
+                            dispararEfeito('explosao_avatar', null);
+
+                            // Se explodiu, ele perde o direito àquela letra (volta a ficar disponível)
+                            for (let letra in jogo.alfabeto_estado) {
+                                if (jogo.alfabeto_estado[letra] === alvo) {
+                                    jogo.alfabeto_estado[letra] = null;
+                                }
+                            }
+                            // O jogador sai da plateia e dos acertos
+                            jogo.jogadores_plateia = jogo.jogadores_plateia.filter(p => p !== alvo);
+                            jogo.acertos_rodada = jogo.acertos_rodada.filter(p => p !== alvo);
+                        }
+                        bombas_remover.push(alvo);
+                    }
+                }
+                bombas_remover.forEach(b => delete jogo.bombas_ativas[b]);
+
+                // Checagem de Fim de Jogo pelas Bombas
+                let qtd_final = jogo.jogadores_plateia.length;
+                if (jogo.ativo && (qtd_final === 0 || (qtd_final === 1 && (jogo.qnt_inicial || 2) > 1))) {
+                     jogo.ativo = false; jogo.iniciando = false;
+
+                     // Zera as letras para o vencedor voltar limpo pra plateia
+                     for (let letra in jogo.alfabeto_estado) { jogo.alfabeto_estado[letra] = null; }
+                     jogo.acertos_rodada = [];
+
+                     let vencedor = jogo.jogadores_plateia[0] || null;
+                     if (vencedor) {
+                         let d = { nick: vencedor, avatar: jogo.dados_jogadores[vencedor].avatar, tempo: Math.floor((Date.now() - jogo.tempo_inicio)/1000), palavras: jogo.dados_jogadores[vencedor].acertos_lista || [] };
+                         dispararEfeito('game_over', d);
+                     } else {
+                         dispararEfeito('game_over', null);
+                     }
+                }
+                atualizarTela();
+            }
+        }, 1000);
+
+        window.addEventListener('resize', () => {
+            if(!jogoEstavaAtivo) posicoesFixas = calculateAlphabetPositions();
+            posicoesPlateia = {}; // Recalcula posições aleatórias para a tela nova
+            window.dispatchEvent(new Event('redraw'));
+        });
+
+        function renderizarRoda(jogo, dados) {
+            const roda = document.getElementById('roda');
+            let posicoes = calculateAlphabetPositions();
+
+            const alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+            alfabeto.forEach((letra) => {
+                const pos = posicoes[letra];
+                if(!pos) return;
+
+                const donoNick = jogo.alfabeto_estado[letra]; // Nick de quem pegou a letra, ou null
+
+                let letterContainer = Array.from(roda.children).find(c => c.dataset.letra === letra);
+
+                if (!letterContainer) {
+                    letterContainer = document.createElement('div');
+                    letterContainer.className = 'player-roda-container';
+                    letterContainer.dataset.letra = letra;
+
+                    letterContainer.innerHTML = `
+                        <div class="letra-circulo" style="width: 55px; height: 55px; border-radius: 50%; background: #333; border: 3px solid #555; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: white;">${letra}</div>
+                        <div class="nome-roda-container" style="display:none;"></div>
+                        <div class="slot-bomba"></div>
+                    `;
+                    roda.appendChild(letterContainer);
+                }
+
+                letterContainer.style.left = pos.x + 'px';
+                letterContainer.style.top = pos.y + 'px';
+
+                const visualCirculo = letterContainer.querySelector('.letra-circulo') || letterContainer.querySelector('.avatar-roda');
+                const nameContainer = letterContainer.querySelector('.nome-roda-container');
+                let slotBomba = letterContainer.querySelector('.slot-bomba');
+
+                if (donoNick && dados[donoNick]) {
+                    let tk = dados[donoNick].tickets?.reviver || 0;
+                    let col = dados[donoNick].colete || 0;
+                    let tkStr = tk > 0 ? `<div class="ticket-badge">🎟️${tk}</div>` : '';
+                    let colStr = col > 0 ? `<div class="colete-badge">🛡️${col}</div>` : '';
+
+                    if (!visualCirculo.classList.contains('avatar-roda')) {
+                        const img = document.createElement('img');
+                        img.src = dados[donoNick].avatar;
+                        img.className = 'avatar-roda';
+                        letterContainer.replaceChild(img, visualCirculo);
+                    } else {
+                        visualCirculo.src = dados[donoNick].avatar;
+                    }
+
+                    nameContainer.style.display = 'flex';
+                    nameContainer.innerHTML = `<div class="nome-texto">${donoNick}</div>${tkStr}${colStr}`;
+
+                    const atualizadoCirculo = letterContainer.querySelector('.avatar-roda');
+                    atualizadoCirculo.style.border = "4px solid #2ed573";
+                    atualizadoCirculo.style.boxShadow = "0 0 15px #2ed573";
+                    letterContainer.style.transform = "translate(-50%, -50%) scale(1.1)";
+                    letterContainer.style.zIndex = "10";
+
+                    let temBomba = jogo.ativo && jogo.bombas_ativas && jogo.bombas_ativas[donoNick] !== undefined;
+                    let tempoBomba = temBomba ? jogo.bombas_ativas[donoNick] : 0;
+
+                    if (temBomba) {
+                        let wrapper = slotBomba.querySelector('.bomba-wrapper');
+                        if (!wrapper) {
+                            slotBomba.innerHTML = `<div class="bomba-wrapper"><div class="bomba-icone">💣</div><div class="bomba-timer">${tempoBomba}</div></div>`;
+                        } else {
+                            let timerEl = wrapper.querySelector('.bomba-timer');
+                            if (timerEl) timerEl.innerText = tempoBomba;
+                        }
+                    } else {
+                        slotBomba.innerHTML = '';
+                    }
+
+                } else {
+                    nameContainer.style.display = 'none';
+                    slotBomba.innerHTML = '';
+
+                    if (visualCirculo.classList.contains('avatar-roda')) {
+                        const divLetra = document.createElement('div');
+                        divLetra.className = 'letra-circulo';
+                        divLetra.style.cssText = "width: 55px; height: 55px; border-radius: 50%; background: #333; border: 3px solid #555; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: white;";
+                        divLetra.innerText = letra;
+                        letterContainer.replaceChild(divLetra, visualCirculo);
+                    }
+
+                    const atualizadoCirculo = letterContainer.querySelector('.letra-circulo');
+                    if(jogo.ativo) {
+                        atualizadoCirculo.style.border = "3px solid #f39c12";
+                        atualizadoCirculo.style.boxShadow = "0 0 5px #f39c12";
+                    } else {
+                        atualizadoCirculo.style.border = "3px solid #555";
+                        atualizadoCirculo.style.boxShadow = "none";
+                    }
+                    letterContainer.style.transform = "translate(-50%, -50%) scale(1)";
+                    letterContainer.style.zIndex = "1";
+                }
+            });
+        }
+
+        function renderizarPlateia(jogo, dados) {
+            const container = document.getElementById('plateia-container');
+            if (!container) return;
+
+            let naPlateia = jogo.jogadores_plateia;
+
+            // Se a rodada estiver valendo, esconde da plateia quem já pegou letra
+            if (jogo.ativo) {
+                let quemPegou = Object.values(jogo.alfabeto_estado).filter(v => v !== null);
+                naPlateia = jogo.jogadores_plateia.filter(p => !quemPegou.includes(p));
+            }
+
+            // Remove quem saiu ou morreu para não ficarem "fantasmas"
+            const nicksAtuais = new Set(naPlateia);
+            Array.from(container.children).forEach(child => {
+                if (!nicksAtuais.has(child.dataset.nick)) { container.removeChild(child); }
+            });
+
+            // Limites Matemáticos da Área Segura (O Donut)
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const raioX_max = width * 0.32; // Levemente menor pra nunca tocar as Letras (que estão em 0.40)
+            const raioY_max = height * 0.32;
+            const raioX_min = width * 0.13; // Protege o centro do cronômetro
+            const raioY_min = height * 0.16;
+            const centroX = width / 2;
+            const centroY = height / 2;
+
+            const total = naPlateia.length;
+
+            // Fator de escala dinâmico: diminui o tamanho de TODO MUNDO se lotar muito a tela
+            let avatarScale = 1;
+            if (total > 20) avatarScale = 0.85;
+            if (total > 40) avatarScale = 0.65;
+            if (total > 60) avatarScale = 0.45;
+
+            naPlateia.forEach(nick => {
+                // Cria a posição da pessoa UMA ÚNICA VEZ e ela nunca mais se mexe (só muda a escala)
+                if (!posicoesPlateia[nick]) {
+                    let angle = Math.random() * Math.PI * 2; // Ângulo 100% aleatório (360 graus)
+                    let distance = Math.random(); // Distância aleatória (espalha uniforme)
+
+                    // Usa raiz quadrada na distância para não aglomerar no centro
+                    let r = raioX_min + Math.sqrt(distance) * (raioX_max - raioX_min);
+
+                    let rx = r;
+                    let ry = r * (raioY_max / raioX_max); // Acompanha o formato da tela
+
+                    posicoesPlateia[nick] = {
+                        x: centroX + Math.cos(angle) * rx,
+                        y: centroY + Math.sin(angle) * ry
+                    };
+                }
+
+                // Aplica a escala global para o boneco atual
+                posicoesPlateia[nick].scale = avatarScale;
+            });
+
+            naPlateia.forEach(nick => {
+                const pos = posicoesPlateia[nick];
+
+                // Busca se a div do jogador já existe
+                let div = Array.from(container.children).find(c => c.dataset.nick === nick);
+
+                let avatar = dados[nick]?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=fallback';
+                let col = dados[nick]?.colete || 0;
+                let colStr = col > 0 ? `<div style="position: absolute; bottom: 12px; right: -5px; font-size: 0.6rem; background: #3498db; border-radius: 50%; padding: 2px;">🛡️${col}</div>` : '';
+
+                let temBomba = jogo.ativo && jogo.bombas_ativas && jogo.bombas_ativas[nick] !== undefined;
+                let tempoBomba = temBomba ? jogo.bombas_ativas[nick] : 0;
+                let bombaHtml = temBomba ? `<div class="bomba-wrapper" style="top: -25px;"><div class="bomba-icone" style="font-size: 1.2rem;">💣</div><div class="bomba-timer" style="font-size: 0.8rem;">${tempoBomba}</div></div>` : '';
+
+                // Se o avatar não existia, nós criamos e jogamos na tela
+                if (!div) {
+                    div = document.createElement('div');
+                    div.dataset.nick = nick;
+                    div.style.cssText = "position: absolute; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%); transition: all 0.5s ease;";
+                    container.appendChild(div);
+                }
+
+                div.style.left = pos.x + 'px';
+                div.style.top = pos.y + 'px';
+                div.style.transform = `translate(-50%, -50%) scale(${pos.scale})`; // Aplica a escala para caber todo mundo
+
+                // Renderiza as badges, fotos e nick atualizados
+                div.innerHTML = `
+                    <div style="position: relative;">
+                        <img src="${avatar}" style="width: 45px; height: 45px; border-radius: 50%; border: 2px solid #555; object-fit: cover;">
+                        ${bombaHtml}
+                        ${colStr}
+                    </div>
+                    <div style="font-size: 0.65rem; background: rgba(0,0,0,0.8); padding: 2px 5px; border-radius: 4px; max-width: 55px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; color: white;">${nick}</div>
+                `;
+            });
+        }
+
+        // ==========================================
+        // 📡 PARTE 3: ANTENA HÍBRIDA E REGRAS DO JOGO
+        // ==========================================
+
+        function adicionarJogador(nick, avatar) {
+            if (!jogo.dados_jogadores[nick]) {
+                jogo.dados_jogadores[nick] = { avatar: avatar, taps: 0, tickets: {reviver: 0}, colete: 0, coins: 0, last_gift_times: {}, gift_counts: {}, acertos_lista: [] };
+            } else if (avatar && !avatar.includes("dicebear")) {
+                jogo.dados_jogadores[nick].avatar = avatar;
+            }
+            if (!jogo.jogadores_plateia.includes(nick)) jogo.jogadores_plateia.push(nick);
+            atualizarTela();
+        }
+
+        function escolherAlvoBomba(excluido = null) {
+            // A bomba pode cair em QUALQUER UM que esteja na plateia (tenha pego letra ou não)
+            let candidatos = jogo.jogadores_plateia.filter(j => j !== excluido);
+
+            if (candidatos.length === 0) return null;
+
+            // Retorna um candidato aleatório
+            return candidatos[Math.floor(Math.random() * candidatos.length)];
+        }
+
+        function atualizarHierarquia() {
+            jogo.jogadores_plateia.sort((a, b) => {
+                let coinsA = jogo.dados_jogadores[a]?.coins || 0;
+                let coinsB = jogo.dados_jogadores[b]?.coins || 0;
+                return coinsB - coinsA;
+            });
+        }
+
+        function checkRankingResets(rankings) {
+            const d = new Date(); const dia = d.toISOString().split('T')[0]; const mes = dia.substring(0, 7);
+            const d0 = new Date(d.getFullYear(), 0, 1); const semana = d.getFullYear() + '-W' + Math.ceil((((d - d0) / 86400000) + d0.getDay() + 1) / 7);
+            const p = { diario: dia, semanal: semana, mensal: mes, geral: 'geral' };
+            let changed = false;
+            if (rankings.id_diario !== p.diario) { rankings.diario = {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}; rankings.id_diario = p.diario; changed = true; }
+            if (rankings.id_semanal !== p.semanal) { rankings.semanal = {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}; rankings.id_semanal = p.semanal; changed = true; }
+            if (rankings.id_mensal !== p.mensal) { rankings.mensal = {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}; rankings.id_mensal = p.mensal; changed = true; }
+            return changed;
+        }
+
+        function addRanking(categoria, nick, valor=1) {
+            let rStr = localStorage.getItem('daazRankings');
+            let rankings = rStr ? JSON.parse(rStr) : { id_diario: '', id_semanal: '', id_mensal: '', diario: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, semanal: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, mensal: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, geral: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}} };
+            checkRankingResets(rankings);
+            ['diario', 'semanal', 'mensal', 'geral'].forEach(periodo => {
+                if(!rankings[periodo][categoria]) rankings[periodo][categoria] = {};
+                rankings[periodo][categoria][nick] = (rankings[periodo][categoria][nick] || 0) + valor;
+            });
+            localStorage.setItem('daazRankings', JSON.stringify(rankings));
+
+            // 📡 Avisa a Nuvem que os Rankings mudaram!
+            if (typeof window.fbcPushRankings === "function") window.fbcPushRankings(rankings);
+        }
+
+        function processarEventoDaAPI(d) {
+            let evento = d.event;
+            let dados = d.data;
+            if(!dados) return;
+
+            let nick = (dados.nickname || dados.uniqueId || "").trim();
+            if (!nick || nick.toLowerCase() === "none") return;
+
+            let avatar_url = dados.profilePictureUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${nick}`;
+            espectadoresRecentes[nick] = avatar_url;
+            if (!jogo.dados_jogadores[nick]) {
+                jogo.dados_jogadores[nick] = { avatar: avatar_url, taps: 0, tickets: {reviver: 0}, colete: 0, coins: 0, last_gift_times: {}, gift_counts: {}, acertos_lista: [] };
+            }
+
+            if (!jogo.ativo && !jogo.iniciando) {
+                if ((evento === "join" || evento === "member") && jogo.config.entrar_por_join) {
+                    adicionarJogador(nick, avatar_url);
+                }
+                if (evento === "like" && jogo.config.taps_entrada > 0) {
+                    let taps = parseInt(dados.likeCount || dados.likes || 1);
+                    jogo.dados_jogadores[nick].taps += taps;
+                    if (jogo.dados_jogadores[nick].taps >= jogo.config.taps_entrada && !jogo.jogadores_plateia.includes(nick)) {
+                        jogo.dados_jogadores[nick].taps = 0; adicionarJogador(nick, avatar_url);
+                    }
+                }
+            }
+
+            if (evento === "gift") {
+                let pres = (dados.giftName || dados.name || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let qtd_combo = parseInt(dados.repeatCount || dados.giftCount || dados.count || 1);
+
+                let cfg = jogo.config;
+                let c_ent = (cfg.presente_entrada || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_rev = (cfg.presente_reviver || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_menos = (cfg.presente_menos_tempo || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_kick = (cfg.presente_kick || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_tempo = (cfg.presente_tempo || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_pular = (cfg.presente_pular || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_colete = (cfg.presente_colete || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_uma_bomba = (cfg.presente_uma_bomba || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_empurrar = (cfg.presente_empurrar || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+                let is_ent = (pres === c_ent) || (c_ent.includes("rosa") && pres.includes("rosa"));
+                let is_rev = (pres === c_rev) || (c_rev.includes("coracao") && pres.includes("heart"));
+
+                let isValidGift = is_ent || is_rev || [c_menos, c_kick, c_tempo, c_pular, c_colete, c_uma_bomba, c_empurrar].includes(pres);
+                if (!isValidGift) return;
+
+                let agora = Date.now();
+                let ultimo_tempo = jogo.dados_jogadores[nick].last_gift_times[pres] || 0;
+                let last_count = (agora - ultimo_tempo > 5000) ? 0 : (jogo.dados_jogadores[nick].gift_counts[pres] || 0);
+
+                if (qtd_combo <= last_count) return;
+                let acoes = qtd_combo - last_count;
+
+                jogo.dados_jogadores[nick].last_gift_times[pres] = agora;
+                jogo.dados_jogadores[nick].gift_counts[pres] = qtd_combo;
+                jogo.dados_jogadores[nick].coins += acoes;
+
+                if(jogo.jogadores_plateia.includes(nick)) atualizarHierarquia();
+
+                if (is_ent && !jogo.ativo && !jogo.iniciando && !jogo.jogadores_plateia.includes(nick)) {
+                    adicionarJogador(nick, avatar_url);
+                }
+                else if (is_rev && (jogo.ativo || jogo.iniciando)) {
+                    let tk_ganhos = acoes;
+                    if (!jogo.jogadores_plateia.includes(nick)) { adicionarJogador(nick, avatar_url); tk_ganhos--; dispararEfeito('aviso', `${nick} RESSUSCITOU!`); }
+                    if (tk_ganhos > 0) { jogo.dados_jogadores[nick].tickets.reviver += tk_ganhos; dispararEfeito('aviso', `+${tk_ganhos} TICKET SALVAR!`); }
+                }
+
+                if (jogo.ativo && jogo.jogadores_plateia.length > 0) {
+                    if (pres === c_colete && acoes > 0) {
+                         jogo.dados_jogadores[nick].colete += acoes; addRanking("heroi", nick, acoes); dispararEfeito('aviso', `🛡️ +${acoes} COLETE(S)!`);
+                    }
+                    else if (pres === c_menos) {
+                         jogo.tempo_restante = Math.max(0, jogo.tempo_restante - (5 * acoes)); addRanking("vilao", nick, 1); dispararEfeito('aviso', `-${5 * acoes}s DE TEMPO!`);
+                    }
+                    else if (pres === c_tempo) {
+                        jogo.tempo_restante += (10 * acoes); addRanking("heroi", nick, acoes); dispararEfeito('aviso', `+${10 * acoes}s ADICIONADOS!`);
+                    }
+                    else if (pres === c_pular) {
+                        addRanking("heroi", nick, acoes); dispararEfeito('aviso', `${nick} PULOU O DESAFIO!`); sortearDesafio();
+                    }
+                    else if (pres === c_uma_bomba) {
+                        addRanking("vilao", nick, acoes);
+                        let tempo_queda = parseInt(jogo.config.tempo_bomba_queda) || 7;
+                        for(let i=0; i<acoes; i++) {
+                            let alvo = escolherAlvoBomba(nick);
+                            if (alvo) { jogo.bombas_ativas[alvo] = tempo_queda; dispararEfeito('aviso', `💣 BOMBA CAIU EM ${alvo}!`); }
+                        }
+                    }
+                    else if (pres === c_empurrar) {
+                        if (jogo.bombas_ativas[nick] !== undefined) {
+                            addRanking("heroi", nick, acoes);
+                            let tempo_restante = jogo.bombas_ativas[nick];
+                            delete jogo.bombas_ativas[nick];
+                            let novo_alvo = escolherAlvoBomba(nick);
+                            if (novo_alvo) { jogo.bombas_ativas[novo_alvo] = tempo_restante; dispararEfeito('aviso', `✋ ${nick} EMPURROU A BOMBA PARA ${novo_alvo}!`); }
+                        }
+                    }
+                    else if (pres === c_kick) {
+                        addRanking("vilao", nick, 50);
+                        let tempo_queda = parseInt(jogo.config.tempo_bomba_queda) || 7;
+                        dispararEfeito('aviso', `☢️ NUCLEAR: 4 BOMBAS LANÇADAS! ☢️`);
+                        for(let i=0; i < (4 * acoes); i++) {
+                            let alvo = escolherAlvoBomba(nick);
+                            if (alvo) { jogo.bombas_ativas[alvo] = tempo_queda; }
+                        }
+                    }
+                }
+                atualizarTela();
+            }
+
+            if (evento === "chat") {
+                let msg_bruta = (dados.comment || "");
+                let msg_limpa = msg_bruta.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+                let msg_numerica = msg_bruta.replace(/[^0-9\-]/g, "");
+
+                let arrayPalavras = msg_bruta.split(" ").map(p => p.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, ""));
+                arrayPalavras.push(msg_bruta.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, ""));
+
+                let alvo_encontrado = null;
+                for(let p_name of Object.keys(jogo.dados_jogadores)) {
+                    let p_limpo = p_name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
+                    if(p_limpo && arrayPalavras.includes(p_limpo)) { alvo_encontrado = p_name; break; }
+                }
+
+                if (alvo_encontrado) {
+                    let tk = jogo.dados_jogadores[nick].tickets?.reviver || 0;
+                    let col = jogo.dados_jogadores[nick].colete || 0;
+
+                    if (!jogo.jogadores_plateia.includes(alvo_encontrado) && tk > 0) {
+                        adicionarJogador(alvo_encontrado, jogo.dados_jogadores[alvo_encontrado].avatar);
+                        jogo.dados_jogadores[nick].tickets.reviver--;
+                        if (nick !== alvo_encontrado) { addRanking("heroi", nick, 1); dispararEfeito('aviso', `${nick} SALVOU ${alvo_encontrado}!`); }
+                        else { dispararEfeito('aviso', `${nick} RESSUSCITOU!`); }
+                        return;
+                    } else if (col > 0 && nick !== alvo_encontrado) {
+                        jogo.dados_jogadores[nick].colete--; jogo.dados_jogadores[alvo_encontrado].colete++;
+                        dispararEfeito('aviso', `🛡️ ${nick} DEU 1 COLETE A ${alvo_encontrado}!`); return;
+                    }
+                }
+
+                // O jogador só pode tentar se ele estiver vivo na Plateia e ainda NÃO tiver acertado nessa rodada
+                if (msg_limpa && jogo.ativo && jogo.jogadores_plateia.length > 0) {
+                    if (jogo.jogadores_plateia.includes(nick) && !jogo.acertos_rodada.includes(nick)) {
+
+                        let primeiraLetra = msg_limpa.charAt(0);
+
+                        // 1. Verifica se a letra digitada existe no dicionário/alfabeto
+                        if(jogo.alfabeto_estado[primeiraLetra] !== undefined) {
+
+                            // 2. Verifica se a letra já foi dominada por alguém
+                            if (jogo.alfabeto_estado[primeiraLetra] !== null) {
+                                dispararEfeito('aviso', `A LETRA ${primeiraLetra} JÁ TEM DONO!`);
+                            }
+                            else {
+                                // 3. A letra está livre, vamos checar se a palavra é válida na categoria
+                                let isValid = false;
+                                if (jogo.categoria_atual === "GERAL") {
+                                    if (dicionarioGlobal.has(msg_limpa)) isValid = true;
+                                } else {
+                                    let setCat = (dicionarioCategorias[jogo.categoria_atual] && dicionarioCategorias[jogo.categoria_atual][primeiraLetra]) ? dicionarioCategorias[jogo.categoria_atual][primeiraLetra] : new Set();
+                                    if (setCat.has(msg_limpa)) isValid = true;
+                                }
+
+                                if (!isValid) {
+                                    dispararEfeito('aviso', jogo.categoria_atual === "GERAL" ? "NÃO EXISTE!" : `NÃO EXISTE EM ${jogo.categoria_atual}!`);
+                                } else if (msg_limpa.length < 3) {
+                                    dispararEfeito('aviso', "MUITO CURTA!");
+                                } else if (!jogo.palavras_usadas.includes(msg_limpa)) {
+
+                                    // SUCESSO! Valida a palavra, dá a letra pro jogador e salva ele
+                                    jogo.palavras_usadas.push(msg_limpa);
+                                    jogo.dados_jogadores[nick].acertos_lista.push(msg_limpa);
+
+                                    jogo.acertos_rodada.push(nick);
+                                    jogo.alfabeto_estado[primeiraLetra] = nick; // Conquistou a letra!
+
+                                    jogo.palavras_display.push({nick: nick, palavra: msg_limpa, avatar: jogo.dados_jogadores[nick].avatar});
+                                    addRanking("palavras", nick, 1);
+
+                                    atualizarTela();
+
+                                } else {
+                                    dispararEfeito('aviso', `REPETIDA: ${msg_limpa}!`);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let conexaoNuvemEstabelecida = false;
+        let wsNuvem = null;
+        let wsTikfinity = null;
+        let lastTiktokUser = "";
+
+        function conectarNuvem() {
+            // Garante que o jogo use o rdmUser validado pelo sistema de licenças caso o config esteja vazio
+            let targetUser = jogo.config.tiktok_username || window.rdmUser;
+            if (!targetUser || targetUser === "visitante") return;
+            if (conexaoNuvemEstabelecida && lastTiktokUser === targetUser) return;
+            if (wsNuvem && wsNuvem.readyState === WebSocket.CONNECTING) return;
+            if (wsNuvem) wsNuvem.close();
+
+            lastTiktokUser = targetUser;
+            wsNuvem = new WebSocket("wss://torre-de-controle-rdm.onrender.com:443/");
+            wsNuvem.onopen = () => { conexaoNuvemEstabelecida = true; wsNuvem.send(JSON.stringify({ action: "connect", tiktok_user: targetUser })); dispararEfeito('aviso', `☁️ NUVEM LIGADA! (@${targetUser})`); };
+            wsNuvem.onmessage = (event) => { try { processarEventoDaAPI(JSON.parse(event.data)); } catch(e) {} };
+            wsNuvem.onclose = () => { conexaoNuvemEstabelecida = false; wsNuvem = null; };
+        }
+
+        function verificarEConectar() {
+            if (!wsTikfinity || wsTikfinity.readyState === WebSocket.CLOSED) {
+                wsTikfinity = new WebSocket("ws://127.0.0.1:21213/");
+                wsTikfinity.onopen = () => { if (wsNuvem) { wsNuvem.close(); wsNuvem = null; conexaoNuvemEstabelecida = false; } };
+                wsTikfinity.onmessage = (event) => { try { processarEventoDaAPI(JSON.parse(event.data)); } catch(e) {} };
+                wsTikfinity.onerror = () => { conectarNuvem(); };
+                wsTikfinity.onclose = () => { wsTikfinity = null; };
+            } else if (wsTikfinity.readyState === WebSocket.OPEN) {
+                if (wsNuvem) { wsNuvem.close(); wsNuvem = null; conexaoNuvemEstabelecida = false; }
+            }
+        }
+
+        setInterval(verificarEConectar, 2000);
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyB2LNWktWEwYLuZxwr8oc9NpcjFz3GU5qc", authDomain: "authrdm-a82a6.firebaseapp.com", databaseURL: "https://authrdm-a82a6-default-rtdb.firebaseio.com", projectId: "authrdm-a82a6" };
+        const app = initializeApp(firebaseConfig); const db = getDatabase(app);
+
+        // Força a leitura direta e segura do localStorage sincronizado com a licença da RDM
+        const rdmUser = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user') || "visitante";
+
+        // Canal de envio dos Rankings para o Firebase
+        window.fbcPushRankings = function(rankingsData) {
+            set(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_rankings`), rankingsData);
+        };
+
+        // Ouve a Nuvem para configurações visuais
+        onValue(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_config`), (snapshot) => {
+            if(snapshot.exists()) {
+                localStorage.setItem('daazConfig', JSON.stringify(snapshot.val()));
+                if (typeof window.atualizarConfig === "function") window.atualizarConfig();
+                if (typeof window.atualizarTela === "function") window.atualizarTela();
+            }
+        });
+
+        // Ouve os botões de ação do Painel
+        onValue(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_comando`), (snapshot) => {
+            if(snapshot.exists()) {
+                localStorage.setItem('daazCommand', JSON.stringify(snapshot.val()));
+            }
+        });
+
+        // Ouve atualizações de Rankings vindas do painel (ex: limpar dia)
+        onValue(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_rankings`), (snapshot) => {
+            if(snapshot.exists()) {
+                localStorage.setItem('daazRankings', JSON.stringify(snapshot.val()));
+                if (typeof window.atualizarTela === "function") window.atualizarTela();
+            }
+        });
+    </script>
+</body>
+</html>
