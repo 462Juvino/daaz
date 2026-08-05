@@ -1042,17 +1042,27 @@
         }
 
         function addRanking(categoria, nick, valor=1) {
-            let rStr = localStorage.getItem('daazRankings');
-            let rankings = rStr ? JSON.parse(rStr) : { id_diario: '', id_semanal: '', id_mensal: '', diario: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, semanal: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, mensal: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, geral: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}} };
-            checkRankingResets(rankings);
-            ['diario', 'semanal', 'mensal', 'geral'].forEach(periodo => {
-                if(!rankings[periodo][categoria]) rankings[periodo][categoria] = {};
-                rankings[periodo][categoria][nick] = (rankings[periodo][categoria][nick] || 0) + valor;
-            });
-            localStorage.setItem('daazRankings', JSON.stringify(rankings));
+            try {
+                let rStr = localStorage.getItem('daazRankings');
+                let rankings = rStr ? JSON.parse(rStr) : { id_diario: '', id_semanal: '', id_mensal: '', diario: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, semanal: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, mensal: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}}, geral: {vitorias:{}, palavras:{}, heroi:{}, vilao:{}} };
+                checkRankingResets(rankings);
 
-            // 📡 Avisa a Nuvem que os Rankings mudaram!
-            if (typeof window.fbcPushRankings === "function") window.fbcPushRankings(rankings);
+                // HIGIENIZA O NOME: Troca pontos e símbolos por underline para o Firebase não surtar
+                let safeNick = nick.replace(/[.#$\[\]\/]/g, "_");
+
+                ['diario', 'semanal', 'mensal', 'geral'].forEach(periodo => {
+                    if(!rankings[periodo][categoria]) rankings[periodo][categoria] = {};
+                    rankings[periodo][categoria][safeNick] = (rankings[periodo][categoria][safeNick] || 0) + valor;
+                });
+                localStorage.setItem('daazRankings', JSON.stringify(rankings));
+
+                // 📡 Avisa a Nuvem que os Rankings mudaram!
+                if (typeof window.fbcPushRankings === "function") {
+                    try { window.fbcPushRankings(rankings); } catch(err) {} // Se der erro, ignora para não travar o jogo!
+                }
+            } catch(e) {
+                console.error("Erro interno no Ranking, mas o jogo vai continuar!");
+            }
         }
 
         function processarEventoDaAPI(d) {
@@ -1060,8 +1070,11 @@
             let dados = d.data;
             if(!dados) return;
 
-            let nick = (dados.nickname || dados.uniqueId || "").trim();
-            if (!nick || nick.toLowerCase() === "none") return;
+            let nick_bruto = (dados.nickname || dados.uniqueId || "").trim();
+            if (!nick_bruto || nick_bruto.toLowerCase() === "none") return;
+
+            // 🛡️ A CURA PRINCIPAL: Remove o ponto do seu nome antes mesmo de jogar!
+            let nick = nick_bruto.replace(/[.#$\[\]\/]/g, "_");
 
             let avatar_url = dados.profilePictureUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${nick}`;
             espectadoresRecentes[nick] = avatar_url;
@@ -1074,7 +1087,6 @@
                     adicionarJogador(nick, avatar_url);
                 }
                 if (evento === "like" && jogo.config.taps_entrada > 0) {
-                    // Multiplica por 5 para compensar o atraso do TikTok
                     let taps = (parseInt(dados.likeCount || dados.likes || 1)) * 5;
                     jogo.dados_jogadores[nick].taps += taps;
                     if (jogo.dados_jogadores[nick].taps >= jogo.config.taps_entrada && !jogo.jogadores_plateia.includes(nick)) {
@@ -1084,9 +1096,9 @@
             }
 
             if (evento === "gift") {
-                let raw_pres = (dados.giftName || dados.name || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-                let pres = raw_pres.replace(/[^a-z0-9]/g, "");
-                if (pres.includes("rose") || pres.includes("rosas")) pres = "rosa";
+                let raw_pres = (dados.giftName || dados.name || "");
+                let pres = raw_pres.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                if (pres.includes("rose")) pres = "rosa";
 
                 let qtd_combo = parseInt(dados.repeatCount || dados.giftCount || dados.count || 1);
                 let cfg = jogo.config;
@@ -1101,7 +1113,6 @@
                 let c_uma_bomba = (cfg.presente_uma_bomba || "").toLowerCase().replace(/[^a-z0-9]/g, "");
                 let c_empurrar = (cfg.presente_empurrar || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-                // LÓGICA BLINDADA: Busca se o texto configurado ESTÁ DENTRO do presente recebido (ignora erros do TikTok)
                 let is_ent = (c_ent !== "" && pres.includes(c_ent)) || (c_ent.includes("rosa") && pres.includes("rosa"));
                 let is_rev = (c_rev !== "" && pres.includes(c_rev)) || (c_rev.includes("coracao") && pres.includes("heart"));
                 let is_menos = (c_menos !== "" && pres.includes(c_menos));
@@ -1109,7 +1120,7 @@
                 let is_tempo = (c_tempo !== "" && pres.includes(c_tempo));
                 let is_pular = (c_pular !== "" && pres.includes(c_pular));
                 let is_colete = (c_colete !== "" && pres.includes(c_colete));
-                let is_uma_bomba = (c_uma_bomba !== "" && pres.includes(c_uma_bomba)) || (c_uma_bomba.includes("rosa") && pres.includes("rosa"));
+                let is_uma_bomba = (c_uma_bomba !== "" && pres.includes(c_uma_bomba)) || pres.includes("rosa");
                 let is_empurrar = (c_empurrar !== "" && pres.includes(c_empurrar));
 
                 let isValidGift = is_ent || is_rev || is_menos || is_kick || is_tempo || is_pular || is_colete || is_uma_bomba || is_empurrar;
@@ -1128,17 +1139,15 @@
 
                 if(jogo.jogadores_plateia.includes(nick)) atualizarHierarquia();
 
-                // 1. ENTRADA E REVIVER (Funciona no Lobby e na Partida)
                 if (is_ent && !jogo.ativo && !jogo.iniciando && !jogo.jogadores_plateia.includes(nick)) {
                     adicionarJogador(nick, avatar_url);
                 }
                 else if (is_rev && (jogo.ativo || jogo.iniciando)) {
                     let tk_ganhos = acoes;
-                    if (!jogo.jogadores_plateia.includes(nick)) { adicionarJogador(nick, avatar_url); tk_ganhos--; dispararEfeito('aviso', `${nick} RESSUSCITOU!`); }
+                    if (!jogo.jogadores_plateia.includes(nick)) { adicionarJogador(nick, avatar_url); tk_ganhos--; dispararEfeito('aviso', `${nick_bruto} RESSUSCITOU!`); }
                     if (tk_ganhos > 0) { jogo.dados_jogadores[nick].tickets.reviver += tk_ganhos; dispararEfeito('aviso', `+${tk_ganhos} TICKET SALVAR!`); }
                 }
 
-                // 2. PODERES E BOMBAS (SÓ FUNCIONAM SE A PARTIDA ESTIVER ROLANDO!)
                 if (jogo.ativo && jogo.jogadores_plateia.length > 0) {
                     if (is_colete && acoes > 0) {
                          jogo.dados_jogadores[nick].colete += acoes; addRanking("heroi", nick, acoes); dispararEfeito('aviso', `🛡️ +${acoes} COLETE(S)!`);
@@ -1150,7 +1159,7 @@
                         jogo.tempo_restante += (10 * acoes); addRanking("heroi", nick, acoes); dispararEfeito('aviso', `+${10 * acoes}s ADICIONADOS!`);
                     }
                     else if (is_pular) {
-                        addRanking("heroi", nick, acoes); dispararEfeito('aviso', `${nick} PULOU O DESAFIO!`); sortearDesafio();
+                        addRanking("heroi", nick, acoes); dispararEfeito('aviso', `${nick_bruto} PULOU O DESAFIO!`); sortearDesafio();
                     }
                     else if (is_uma_bomba) {
                         addRanking("vilao", nick, acoes);
@@ -1166,7 +1175,7 @@
                             let tempo_restante = jogo.bombas_ativas[nick];
                             delete jogo.bombas_ativas[nick];
                             let novo_alvo = escolherAlvoBomba(nick);
-                            if (novo_alvo) { jogo.bombas_ativas[novo_alvo] = tempo_restante; dispararEfeito('aviso', `✋ ${nick} EMPURROU A BOMBA PARA ${novo_alvo}!`); }
+                            if (novo_alvo) { jogo.bombas_ativas[novo_alvo] = tempo_restante; dispararEfeito('aviso', `✋ ${nick_bruto} EMPURROU A BOMBA PARA ${novo_alvo}!`); }
                         }
                     }
                     else if (is_kick) {
@@ -1203,30 +1212,23 @@
                     if (!jogo.jogadores_plateia.includes(alvo_encontrado) && tk > 0) {
                         adicionarJogador(alvo_encontrado, jogo.dados_jogadores[alvo_encontrado].avatar);
                         jogo.dados_jogadores[nick].tickets.reviver--;
-                        if (nick !== alvo_encontrado) { addRanking("heroi", nick, 1); dispararEfeito('aviso', `${nick} SALVOU ${alvo_encontrado}!`); }
-                        else { dispararEfeito('aviso', `${nick} RESSUSCITOU!`); }
+                        if (nick !== alvo_encontrado) { addRanking("heroi", nick, 1); dispararEfeito('aviso', `${nick_bruto} SALVOU ${alvo_encontrado}!`); }
+                        else { dispararEfeito('aviso', `${nick_bruto} RESSUSCITOU!`); }
                         return;
                     } else if (col > 0 && nick !== alvo_encontrado) {
                         jogo.dados_jogadores[nick].colete--; jogo.dados_jogadores[alvo_encontrado].colete++;
-                        dispararEfeito('aviso', `🛡️ ${nick} DEU 1 COLETE A ${alvo_encontrado}!`); return;
+                        dispararEfeito('aviso', `🛡️ ${nick_bruto} DEU 1 COLETE A ${alvo_encontrado}!`); return;
                     }
                 }
 
-                // O jogador só pode tentar se ele estiver vivo na Plateia e ainda NÃO tiver acertado nessa rodada
                 if (msg_limpa && jogo.ativo && jogo.jogadores_plateia.length > 0) {
                     if (jogo.jogadores_plateia.includes(nick) && !jogo.acertos_rodada.includes(nick)) {
-
                         let primeiraLetra = msg_limpa.charAt(0);
-
-                        // 1. Verifica se a letra digitada existe no dicionário/alfabeto
                         if(jogo.alfabeto_estado[primeiraLetra] !== undefined) {
-
-                            // 2. Verifica se a letra já foi dominada por alguém
                             if (jogo.alfabeto_estado[primeiraLetra] !== null) {
                                 dispararEfeito('aviso', `A LETRA ${primeiraLetra} JÁ TEM DONO!`);
                             }
                             else {
-                                // 3. A letra está livre, vamos checar se a palavra é válida na categoria
                                 let isValid = false;
                                 if (jogo.categoria_atual === "GERAL") {
                                     if (dicionarioGlobal.has(msg_limpa)) isValid = true;
@@ -1240,19 +1242,13 @@
                                 } else if (msg_limpa.length < 3) {
                                     dispararEfeito('aviso', "MUITO CURTA!");
                                 } else if (!jogo.palavras_usadas.includes(msg_limpa)) {
-
-                                    // SUCESSO! Valida a palavra, dá a letra pro jogador e salva ele
                                     jogo.palavras_usadas.push(msg_limpa);
                                     jogo.dados_jogadores[nick].acertos_lista.push(msg_limpa);
-
                                     jogo.acertos_rodada.push(nick);
-                                    jogo.alfabeto_estado[primeiraLetra] = nick; // Conquistou a letra!
-
-                                    jogo.palavras_display.push({nick: nick, palavra: msg_limpa, avatar: jogo.dados_jogadores[nick].avatar});
+                                    jogo.alfabeto_estado[primeiraLetra] = nick;
+                                    jogo.palavras_display.push({nick: nick_bruto, palavra: msg_limpa, avatar: jogo.dados_jogadores[nick].avatar});
                                     addRanking("palavras", nick, 1);
-
                                     atualizarTela();
-
                                 } else {
                                     dispararEfeito('aviso', `REPETIDA: ${msg_limpa}!`);
                                 }
@@ -1308,13 +1304,16 @@
         // Força a leitura direta e segura do localStorage sincronizado com a licença da RDM
         const rdmUser = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user') || "visitante";
 
+        // 🛡️ CURA DO FIREBASE: Remove pontos e caracteres proibidos do nome do usuário!
+        const safeUser = rdmUser.replace(/[.#$\[\]]/g, "_");
+
         // Canal de envio dos Rankings para o Firebase
         window.fbcPushRankings = function(rankingsData) {
-            set(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_rankings`), rankingsData);
+            set(ref(db, `usuarios/${safeUser}/controle_remoto/daaz_rankings`), rankingsData);
         };
 
         // Ouve a Nuvem para configurações visuais
-        onValue(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_config`), (snapshot) => {
+        onValue(ref(db, `usuarios/${safeUser}/controle_remoto/daaz_config`), (snapshot) => {
             if(snapshot.exists()) {
                 localStorage.setItem('daazConfig', JSON.stringify(snapshot.val()));
                 if (typeof window.atualizarConfig === "function") window.atualizarConfig();
@@ -1323,14 +1322,14 @@
         });
 
         // Ouve os botões de ação do Painel
-        onValue(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_comando`), (snapshot) => {
+        onValue(ref(db, `usuarios/${safeUser}/controle_remoto/daaz_comando`), (snapshot) => {
             if(snapshot.exists()) {
                 localStorage.setItem('daazCommand', JSON.stringify(snapshot.val()));
             }
         });
 
         // Ouve atualizações de Rankings vindas do painel (ex: limpar dia)
-        onValue(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_rankings`), (snapshot) => {
+        onValue(ref(db, `usuarios/${safeUser}/controle_remoto/daaz_rankings`), (snapshot) => {
             if(snapshot.exists()) {
                 localStorage.setItem('daazRankings', JSON.stringify(snapshot.val()));
                 if (typeof window.atualizarTela === "function") window.atualizarTela();

@@ -417,7 +417,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Mude para as SUAS credenciais Firebase caso use uma base diferente para o daaz
         const firebaseConfig = { apiKey: "AIzaSyB2LNWktWEwYLuZxwr8oc9NpcjFz3GU5qc", authDomain: "authrdm-a82a6.firebaseapp.com", databaseURL: "https://authrdm-a82a6-default-rtdb.firebaseio.com", projectId: "authrdm-a82a6" };
         const app = initializeApp(firebaseConfig); const db = getDatabase(app);
 
@@ -426,19 +425,23 @@
         window.salvarConfig = function(silencioso = false) {
             originalSalvar(silencioso);
             const rdmUser = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user') || "visitante";
+            const safeUser = rdmUser.replace(/[.#$\[\]]/g, "_");
+
             let configStr = localStorage.getItem('daazConfig');
-            if(configStr) set(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_config`), JSON.parse(configStr));
+            if(configStr) set(ref(db, `usuarios/${safeUser}/controle_remoto/daaz_config`), JSON.parse(configStr));
         };
 
         const originalEnviar = window.enviarComando;
         window.enviarComando = function(action, value = null) {
             originalEnviar(action, value);
             const rdmUser = localStorage.getItem('rdm_user_tiktok') || localStorage.getItem('rdm_user') || "visitante";
-            set(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_comando`), { ts: Date.now(), action: action, value: value });
+            const safeUser = rdmUser.replace(/[.#$\[\]]/g, "_");
+
+            set(ref(db, `usuarios/${safeUser}/controle_remoto/daaz_comando`), { ts: Date.now(), action: action, value: value });
 
             if (action === 'limpar_diario') {
                 let rStr = localStorage.getItem('daazRankings');
-                if (rStr) set(ref(db, `usuarios/${rdmUser}/controle_remoto/daaz_rankings`), JSON.parse(rStr));
+                if (rStr) set(ref(db, `usuarios/${safeUser}/controle_remoto/daaz_rankings`), JSON.parse(rStr));
             }
         };
     </script>
