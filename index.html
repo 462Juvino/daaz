@@ -26,7 +26,9 @@
         #palavras-top-container {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
             display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
-            width: 90%; max-height: 25%; overflow-y: hidden; z-index: 50;
+            width: 90%; max-height: 25%; overflow-y: hidden;
+            z-index: 0; /* Joga as palavras para trás de tudo */
+            opacity: 0.85; /* Deixa um pouco transparente para não atrapalhar */
         }
         .palavra-pill {
             background: rgba(0,0,0,0.8); border: 2px solid #2ed573; border-radius: 20px;
@@ -38,7 +40,8 @@
         .palavra-pill span { color: white; font-weight: bold; font-size: 1.2rem; }
         @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
 
-        .roda-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;}
+        /* Aumenta a prioridade da Roda e das Letras para ficarem na frente das palavras */
+        .roda-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20;}
         .player-roda-container { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; transition: left 0.5s ease, top 0.5s ease; pointer-events: auto; }
         .avatar-roda { width: 55px; height: 55px; border-radius: 50%; border: 3px solid #555; object-fit: cover; background-color: #222; transition: all 0.3s; }
 
@@ -47,7 +50,7 @@
         .ticket-badge { color: gold; font-size: 0.75rem; font-weight: bold; margin-left: 4px; flex-shrink: 0; text-shadow: 0 0 5px gold; }
         .colete-badge { color: #3498db; font-size: 0.75rem; font-weight: bold; margin-left: 4px; flex-shrink: 0; text-shadow: 0 0 5px #3498db; }
 
-        .centro-bomba { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; display: flex; flex-direction: column; align-items: center;}
+        .centro-bomba { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 1000; display: flex; flex-direction: column; align-items: center;}
         .categoria-display { background: rgba(0, 0, 0, 0.85); color: #f39c12; padding: 5px 25px; border-radius: 8px; font-size: 1.5rem; font-weight: bold; margin-bottom: 5px; border: 1px solid #f39c12; text-transform: uppercase; box-shadow: 0 0 10px rgba(243, 156, 18, 0.5); pointer-events: none;}
         .silaba-display { background: rgba(9, 50, 125, 0.85); padding: 10px 40px; border-radius: 12px; font-size: 4rem; font-weight: 900; letter-spacing: 2px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); text-transform: uppercase; border: 2px solid #3498db; backdrop-filter: blur(5px); margin-bottom: 12px; pointer-events: none;}
         .tempo-restante { font-size: 4rem; color: #f39c12; font-weight: 900; margin-top: 10px; text-shadow: 0 0 15px rgba(243, 156, 18, 0.8); pointer-events: none;}
@@ -146,7 +149,7 @@
                 <div class="tempo-restante" id="tempo">60s</div>
             </div>
             <!-- NOVO: Container absoluto da plateia que ocupa a tela toda, mas não bloqueia o clique -->
-            <div id="plateia-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+            <div id="plateia-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></div>
         </div>
     </div>
 
@@ -216,7 +219,7 @@
 
         let jogo = {
             ativo: false, iniciando: false, jogadores_plateia: [], dados_jogadores: {},
-            categoria_atual: "GERAL",
+            categoria_atual: "GERAL", categorias_restantes: [],
             palavras_usadas: [], tempo_restante: 0, tempo_rodada_atual: 60, tempo_inicio: 0, lastCmdTs: 0,
             bombas_ativas: {}, acertos_rodada: [], palavras_display: [], config: {},
             // NOVO: Controle das 26 letras
@@ -579,10 +582,16 @@
             }
 
             jogo.tipo_desafio = "letra_categoria";
-            let categoriasDisponiveis = Object.keys(dicionarioCategorias);
 
-            if (categoriasDisponiveis.length > 0) {
-                jogo.categoria_atual = categoriasDisponiveis[Math.floor(Math.random() * categoriasDisponiveis.length)];
+            // Se as categorias acabaram, recarrega o saco de temas!
+            if (!jogo.categorias_restantes || jogo.categorias_restantes.length === 0) {
+                jogo.categorias_restantes = Object.keys(dicionarioCategorias);
+            }
+
+            if (jogo.categorias_restantes.length > 0) {
+                // Sorteia um tema e REMOVE ele do saco para não repetir
+                let indexSorteado = Math.floor(Math.random() * jogo.categorias_restantes.length);
+                jogo.categoria_atual = jogo.categorias_restantes.splice(indexSorteado, 1)[0];
             } else {
                 jogo.categoria_atual = "GERAL";
             }
@@ -595,12 +604,13 @@
         }
 
         async function iniciarComContagem() {
-            jogo.iniciando = true; jogo.qnt_inicial = jogo.jogadores_plateia.length; atualizarTela();
-            for (let i = 5; i > 0; i--) { dispararEfeito('countdown', i.toString()); await new Promise(r => setTimeout(r, 1000)); }
-            dispararEfeito('countdown', "BORAAAA!"); await new Promise(r => setTimeout(r, 1000));
-
+            // ... código existente
             jogo.ativo = true; jogo.iniciando = false; jogo.turno_atual = 0; jogo.tempo_inicio = Date.now();
             jogo.tempo_rodada_atual = parseInt(jogo.config.tempo_rodada) || 60;
+
+            // ADICIONE A LIMPEZA DAS BOMBAS AQUI:
+            jogo.bombas_ativas = {};
+
             jogo.acertos_rodada = []; jogo.palavras_display = []; jogo.combos_usados = [];
             sortearDesafio(); atualizarTela();
         }
@@ -621,15 +631,20 @@
                 // Zera as letras para o vencedor voltar limpo pra plateia na próxima partida
                 for (let letra in jogo.alfabeto_estado) { jogo.alfabeto_estado[letra] = null; }
                 jogo.acertos_rodada = [];
+                // ADICIONE A LIMPEZA AQUI TAMBÉM:
+                jogo.bombas_ativas = {};
 
                 if (vencedor) {
                     let d = { nick: vencedor, avatar: jogo.dados_jogadores[vencedor].avatar, tempo: Math.floor((Date.now() - jogo.tempo_inicio)/1000), palavras: jogo.dados_jogadores[vencedor].acertos_lista || [] };
                     dispararEfeito('game_over', d);
                 } else { dispararEfeito('game_over', null); }
             } else {
-                // O jogo continua, novo tema é sorteado
-                if (jogo.tempo_rodada_atual > 10) jogo.tempo_rodada_atual -= 10;
-                else if (jogo.tempo_rodada_atual > 5) jogo.tempo_rodada_atual -= 1;
+                // O jogo continua, novo tema é sorteado. Tempo mínimo travado em 10s!
+                if (jogo.tempo_rodada_atual > 20) {
+                    jogo.tempo_rodada_atual -= 10;
+                } else {
+                    jogo.tempo_rodada_atual = 10; // Nunca desce de 10 segundos
+                }
                 sortearDesafio();
             }
             atualizarTela();
@@ -741,6 +756,7 @@
                      // Zera as letras para o vencedor voltar limpo pra plateia
                      for (let letra in jogo.alfabeto_estado) { jogo.alfabeto_estado[letra] = null; }
                      jogo.acertos_rodada = [];
+                     jogo.bombas_ativas = {};
 
                      let vencedor = jogo.jogadores_plateia[0] || null;
                      if (vencedor) {
@@ -865,62 +881,47 @@
 
             let naPlateia = jogo.jogadores_plateia;
 
-            // Se a rodada estiver valendo, esconde da plateia quem já pegou letra
             if (jogo.ativo) {
                 let quemPegou = Object.values(jogo.alfabeto_estado).filter(v => v !== null);
                 naPlateia = jogo.jogadores_plateia.filter(p => !quemPegou.includes(p));
             }
 
-            // Remove quem saiu ou morreu para não ficarem "fantasmas"
             const nicksAtuais = new Set(naPlateia);
             Array.from(container.children).forEach(child => {
                 if (!nicksAtuais.has(child.dataset.nick)) { container.removeChild(child); }
             });
 
-            // Limites Matemáticos da Área Segura (O Donut)
             const width = window.innerWidth;
             const height = window.innerHeight;
-            const raioX_max = width * 0.32; // Levemente menor pra nunca tocar as Letras (que estão em 0.40)
-            const raioY_max = height * 0.32;
-            const raioX_min = width * 0.13; // Protege o centro do cronômetro
-            const raioY_min = height * 0.16;
             const centroX = width / 2;
             const centroY = height / 2;
 
             const total = naPlateia.length;
-
-            // Fator de escala dinâmico: diminui o tamanho de TODO MUNDO se lotar muito a tela
             let avatarScale = 1;
             if (total > 20) avatarScale = 0.85;
             if (total > 40) avatarScale = 0.65;
             if (total > 60) avatarScale = 0.45;
 
-            naPlateia.forEach(nick => {
-                // Cria a posição da pessoa UMA ÚNICA VEZ e ela nunca mais se mexe (só muda a escala)
-                if (!posicoesPlateia[nick]) {
-                    let angle = Math.random() * Math.PI * 2; // Ângulo 100% aleatório (360 graus)
-                    let distance = Math.random(); // Distância aleatória (espalha uniforme)
+            // CRIA OS ANÉIS DEIXANDO O MEIO E A BORDA TOTALMENTE LIVRES
+            if (!window.bancosPlateia || window.bancosPlateia.length < total || window.bancosPlateia.length === 0) {
+                window.bancosPlateia = [];
+                const camadas = [
+                    { qtd: 15, rx: width * 0.18, ry: height * 0.20 }, // Anel 1 (Longe do texto central)
+                    { qtd: 25, rx: width * 0.24, ry: height * 0.26 }, // Anel 2
+                    { qtd: 40, rx: width * 0.30, ry: height * 0.32 }, // Anel 3
+                    { qtd: 70, rx: width * 0.35, ry: height * 0.36 }  // Anel 4 (Longe das letras A-Z)
+                ];
+                camadas.forEach((c, idx) => {
+                    for(let i=0; i < c.qtd; i++) {
+                        let angle = (i / c.qtd) * Math.PI * 2;
+                        angle += (idx % 2 === 0) ? 0 : (Math.PI / c.qtd);
+                        window.bancosPlateia.push({ x: centroX + Math.cos(angle)*c.rx, y: centroY + Math.sin(angle)*c.ry });
+                    }
+                });
+            }
 
-                    // Usa raiz quadrada na distância para não aglomerar no centro
-                    let r = raioX_min + Math.sqrt(distance) * (raioX_max - raioX_min);
-
-                    let rx = r;
-                    let ry = r * (raioY_max / raioX_max); // Acompanha o formato da tela
-
-                    posicoesPlateia[nick] = {
-                        x: centroX + Math.cos(angle) * rx,
-                        y: centroY + Math.sin(angle) * ry
-                    };
-                }
-
-                // Aplica a escala global para o boneco atual
-                posicoesPlateia[nick].scale = avatarScale;
-            });
-
-            naPlateia.forEach(nick => {
-                const pos = posicoesPlateia[nick];
-
-                // Busca se a div do jogador já existe
+            naPlateia.forEach((nick, index) => {
+                let pos = window.bancosPlateia[index % window.bancosPlateia.length];
                 let div = Array.from(container.children).find(c => c.dataset.nick === nick);
 
                 let avatar = dados[nick]?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=fallback';
@@ -929,29 +930,65 @@
 
                 let temBomba = jogo.ativo && jogo.bombas_ativas && jogo.bombas_ativas[nick] !== undefined;
                 let tempoBomba = temBomba ? jogo.bombas_ativas[nick] : 0;
-                let bombaHtml = temBomba ? `<div class="bomba-wrapper" style="top: -25px;"><div class="bomba-icone" style="font-size: 1.2rem;">💣</div><div class="bomba-timer" style="font-size: 0.8rem;">${tempoBomba}</div></div>` : '';
 
-                // Se o avatar não existia, nós criamos e jogamos na tela
+                // MÉTODO ESTOPE: Cria a DIV vazia APENAS UMA VEZ!
                 if (!div) {
                     div = document.createElement('div');
                     div.dataset.nick = nick;
-                    div.style.cssText = "position: absolute; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%); transition: all 0.5s ease;";
+                    div.style.cssText = "position: absolute; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%); transition: left 0.5s, top 0.5s, transform 0.5s;";
+
+                    const imgContainer = document.createElement('div');
+                    imgContainer.style.position = 'relative';
+
+                    const img = document.createElement('img');
+                    img.className = 'avatar-plateia';
+                    img.style.cssText = "width: 45px; height: 45px; border-radius: 50%; border: 2px solid #555; object-fit: cover;";
+
+                    const slotBomba = document.createElement('div');
+                    slotBomba.className = 'slot-bomba';
+
+                    const slotColete = document.createElement('div');
+                    slotColete.className = 'slot-colete';
+
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(slotBomba);
+                    imgContainer.appendChild(slotColete);
+
+                    const nameLabel = document.createElement('div');
+                    nameLabel.className = 'nome-plateia';
+                    nameLabel.style.cssText = "font-size: 0.65rem; background: rgba(0,0,0,0.8); padding: 2px 5px; border-radius: 4px; max-width: 55px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; color: white;";
+                    nameLabel.innerText = nick;
+
+                    div.appendChild(imgContainer);
+                    div.appendChild(nameLabel);
                     container.appendChild(div);
                 }
 
+                // ATUALIZAÇÃO DA BOMBA (Sem quebrar a animação)
                 div.style.left = pos.x + 'px';
                 div.style.top = pos.y + 'px';
-                div.style.transform = `translate(-50%, -50%) scale(${pos.scale})`; // Aplica a escala para caber todo mundo
+                div.style.transform = `translate(-50%, -50%) scale(${avatarScale})`;
 
-                // Renderiza as badges, fotos e nick atualizados
-                div.innerHTML = `
-                    <div style="position: relative;">
-                        <img src="${avatar}" style="width: 45px; height: 45px; border-radius: 50%; border: 2px solid #555; object-fit: cover;">
-                        ${bombaHtml}
-                        ${colStr}
-                    </div>
-                    <div style="font-size: 0.65rem; background: rgba(0,0,0,0.8); padding: 2px 5px; border-radius: 4px; max-width: 55px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; color: white;">${nick}</div>
-                `;
+                let img = div.querySelector('.avatar-plateia');
+                if (img && img.src !== avatar) img.src = avatar;
+
+                let slotColete = div.querySelector('.slot-colete');
+                if (slotColete) slotColete.innerHTML = colStr;
+
+                let slotBomba = div.querySelector('.slot-bomba');
+                if (slotBomba) {
+                    if (temBomba) {
+                        let wrapper = slotBomba.querySelector('.bomba-wrapper');
+                        if (!wrapper) {
+                            slotBomba.innerHTML = `<div class="bomba-wrapper" style="top: -25px;"><div class="bomba-icone">💣</div><div class="bomba-timer" style="font-size: 0.8rem; font-weight: 900; text-shadow: 0 0 5px red;">${tempoBomba}</div></div>`;
+                        } else {
+                            let timerEl = wrapper.querySelector('.bomba-timer');
+                            if (timerEl) timerEl.innerText = tempoBomba;
+                        }
+                    } else {
+                        slotBomba.innerHTML = '';
+                    }
+                }
             });
         }
 
@@ -970,15 +1007,21 @@
         }
 
         function escolherAlvoBomba(excluido = null) {
-            // A bomba pode cair em QUALQUER UM que esteja na plateia (tenha pego letra ou não)
+            // Em Daaz o alvo fica na Plateia
             let candidatos = jogo.jogadores_plateia.filter(j => j !== excluido);
-
+            if (candidatos.length === 0) candidatos = jogo.jogadores_plateia;
             if (candidatos.length === 0) return null;
 
-            // Retorna um candidato aleatório
-            return candidatos[Math.floor(Math.random() * candidatos.length)];
+            // Sistema de pesos copiado do Estope
+            let pesos = candidatos.map((_, i) => i + 1);
+            let total = pesos.reduce((a, b) => a + b, 0);
+            let rand = Math.random() * total;
+            for (let i = 0; i < candidatos.length; i++) {
+                if (rand < pesos[i]) return candidatos[i];
+                rand -= pesos[i];
+            }
+            return candidatos[0];
         }
-
         function atualizarHierarquia() {
             jogo.jogadores_plateia.sort((a, b) => {
                 let coinsA = jogo.dados_jogadores[a]?.coins || 0;
@@ -1031,7 +1074,8 @@
                     adicionarJogador(nick, avatar_url);
                 }
                 if (evento === "like" && jogo.config.taps_entrada > 0) {
-                    let taps = parseInt(dados.likeCount || dados.likes || 1);
+                    // Multiplica por 5 para compensar o atraso do TikTok
+                    let taps = (parseInt(dados.likeCount || dados.likes || 1)) * 5;
                     jogo.dados_jogadores[nick].taps += taps;
                     if (jogo.dados_jogadores[nick].taps >= jogo.config.taps_entrada && !jogo.jogadores_plateia.includes(nick)) {
                         jogo.dados_jogadores[nick].taps = 0; adicionarJogador(nick, avatar_url);
@@ -1040,10 +1084,13 @@
             }
 
             if (evento === "gift") {
-                let pres = (dados.giftName || dados.name || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-                let qtd_combo = parseInt(dados.repeatCount || dados.giftCount || dados.count || 1);
+                let raw_pres = (dados.giftName || dados.name || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+                let pres = raw_pres.replace(/[^a-z0-9]/g, "");
+                if (pres.includes("rose") || pres.includes("rosas")) pres = "rosa";
 
+                let qtd_combo = parseInt(dados.repeatCount || dados.giftCount || dados.count || 1);
                 let cfg = jogo.config;
+
                 let c_ent = (cfg.presente_entrada || "").toLowerCase().replace(/[^a-z0-9]/g, "");
                 let c_rev = (cfg.presente_reviver || "").toLowerCase().replace(/[^a-z0-9]/g, "");
                 let c_menos = (cfg.presente_menos_tempo || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -1054,10 +1101,18 @@
                 let c_uma_bomba = (cfg.presente_uma_bomba || "").toLowerCase().replace(/[^a-z0-9]/g, "");
                 let c_empurrar = (cfg.presente_empurrar || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-                let is_ent = (pres === c_ent) || (c_ent.includes("rosa") && pres.includes("rosa"));
-                let is_rev = (pres === c_rev) || (c_rev.includes("coracao") && pres.includes("heart"));
+                // LÓGICA BLINDADA: Busca se o texto configurado ESTÁ DENTRO do presente recebido (ignora erros do TikTok)
+                let is_ent = (c_ent !== "" && pres.includes(c_ent)) || (c_ent.includes("rosa") && pres.includes("rosa"));
+                let is_rev = (c_rev !== "" && pres.includes(c_rev)) || (c_rev.includes("coracao") && pres.includes("heart"));
+                let is_menos = (c_menos !== "" && pres.includes(c_menos));
+                let is_kick = (c_kick !== "" && pres.includes(c_kick));
+                let is_tempo = (c_tempo !== "" && pres.includes(c_tempo));
+                let is_pular = (c_pular !== "" && pres.includes(c_pular));
+                let is_colete = (c_colete !== "" && pres.includes(c_colete));
+                let is_uma_bomba = (c_uma_bomba !== "" && pres.includes(c_uma_bomba)) || (c_uma_bomba.includes("rosa") && pres.includes("rosa"));
+                let is_empurrar = (c_empurrar !== "" && pres.includes(c_empurrar));
 
-                let isValidGift = is_ent || is_rev || [c_menos, c_kick, c_tempo, c_pular, c_colete, c_uma_bomba, c_empurrar].includes(pres);
+                let isValidGift = is_ent || is_rev || is_menos || is_kick || is_tempo || is_pular || is_colete || is_uma_bomba || is_empurrar;
                 if (!isValidGift) return;
 
                 let agora = Date.now();
@@ -1073,6 +1128,7 @@
 
                 if(jogo.jogadores_plateia.includes(nick)) atualizarHierarquia();
 
+                // 1. ENTRADA E REVIVER (Funciona no Lobby e na Partida)
                 if (is_ent && !jogo.ativo && !jogo.iniciando && !jogo.jogadores_plateia.includes(nick)) {
                     adicionarJogador(nick, avatar_url);
                 }
@@ -1082,20 +1138,21 @@
                     if (tk_ganhos > 0) { jogo.dados_jogadores[nick].tickets.reviver += tk_ganhos; dispararEfeito('aviso', `+${tk_ganhos} TICKET SALVAR!`); }
                 }
 
+                // 2. PODERES E BOMBAS (SÓ FUNCIONAM SE A PARTIDA ESTIVER ROLANDO!)
                 if (jogo.ativo && jogo.jogadores_plateia.length > 0) {
-                    if (pres === c_colete && acoes > 0) {
+                    if (is_colete && acoes > 0) {
                          jogo.dados_jogadores[nick].colete += acoes; addRanking("heroi", nick, acoes); dispararEfeito('aviso', `🛡️ +${acoes} COLETE(S)!`);
                     }
-                    else if (pres === c_menos) {
+                    else if (is_menos) {
                          jogo.tempo_restante = Math.max(0, jogo.tempo_restante - (5 * acoes)); addRanking("vilao", nick, 1); dispararEfeito('aviso', `-${5 * acoes}s DE TEMPO!`);
                     }
-                    else if (pres === c_tempo) {
+                    else if (is_tempo) {
                         jogo.tempo_restante += (10 * acoes); addRanking("heroi", nick, acoes); dispararEfeito('aviso', `+${10 * acoes}s ADICIONADOS!`);
                     }
-                    else if (pres === c_pular) {
+                    else if (is_pular) {
                         addRanking("heroi", nick, acoes); dispararEfeito('aviso', `${nick} PULOU O DESAFIO!`); sortearDesafio();
                     }
-                    else if (pres === c_uma_bomba) {
+                    else if (is_uma_bomba) {
                         addRanking("vilao", nick, acoes);
                         let tempo_queda = parseInt(jogo.config.tempo_bomba_queda) || 7;
                         for(let i=0; i<acoes; i++) {
@@ -1103,7 +1160,7 @@
                             if (alvo) { jogo.bombas_ativas[alvo] = tempo_queda; dispararEfeito('aviso', `💣 BOMBA CAIU EM ${alvo}!`); }
                         }
                     }
-                    else if (pres === c_empurrar) {
+                    else if (is_empurrar) {
                         if (jogo.bombas_ativas[nick] !== undefined) {
                             addRanking("heroi", nick, acoes);
                             let tempo_restante = jogo.bombas_ativas[nick];
@@ -1112,7 +1169,7 @@
                             if (novo_alvo) { jogo.bombas_ativas[novo_alvo] = tempo_restante; dispararEfeito('aviso', `✋ ${nick} EMPURROU A BOMBA PARA ${novo_alvo}!`); }
                         }
                     }
-                    else if (pres === c_kick) {
+                    else if (is_kick) {
                         addRanking("vilao", nick, 50);
                         let tempo_queda = parseInt(jogo.config.tempo_bomba_queda) || 7;
                         dispararEfeito('aviso', `☢️ NUCLEAR: 4 BOMBAS LANÇADAS! ☢️`);
