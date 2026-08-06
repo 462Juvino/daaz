@@ -926,26 +926,24 @@
             if (total > 40) avatarScale = 0.65;
             if (total > 60) avatarScale = 0.45;
 
-            // CRIA OS ANÉIS DEIXANDO O MEIO E A BORDA TOTALMENTE LIVRES
-            if (!window.bancosPlateia || window.bancosPlateia.length < total || window.bancosPlateia.length === 0) {
-                window.bancosPlateia = [];
-                const camadas = [
-                    { qtd: 15, rx: width * 0.18, ry: height * 0.20 }, // Anel 1 (Longe do texto central)
-                    { qtd: 25, rx: width * 0.24, ry: height * 0.26 }, // Anel 2
-                    { qtd: 40, rx: width * 0.30, ry: height * 0.32 }, // Anel 3
-                    { qtd: 70, rx: width * 0.35, ry: height * 0.36 }  // Anel 4 (Longe das letras A-Z)
-                ];
-                camadas.forEach((c, idx) => {
-                    for(let i=0; i < c.qtd; i++) {
-                        let angle = (i / c.qtd) * Math.PI * 2;
-                        angle += (idx % 2 === 0) ? 0 : (Math.PI / c.qtd);
-                        window.bancosPlateia.push({ x: centroX + Math.cos(angle)*c.rx, y: centroY + Math.sin(angle)*c.ry });
-                    }
-                });
-            }
+            // CRIA OS ANÉIS (Recalculando sempre para o redimensionamento fluir perfeitamente)
+            let bancosPlateia = [];
+            const camadas = [
+                { qtd: 15, rx: width * 0.18, ry: height * 0.20 }, // Anel 1 (Longe do texto central)
+                { qtd: 25, rx: width * 0.24, ry: height * 0.26 }, // Anel 2
+                { qtd: 40, rx: width * 0.30, ry: height * 0.32 }, // Anel 3
+                { qtd: 70, rx: width * 0.35, ry: height * 0.36 }  // Anel 4 (Longe das letras A-Z)
+            ];
+            camadas.forEach((c, idx) => {
+                for(let i=0; i < c.qtd; i++) {
+                    let angle = (i / c.qtd) * Math.PI * 2;
+                    angle += (idx % 2 === 0) ? 0 : (Math.PI / c.qtd);
+                    bancosPlateia.push({ x: centroX + Math.cos(angle)*c.rx, y: centroY + Math.sin(angle)*c.ry });
+                }
+            });
 
             naPlateia.forEach((nick, index) => {
-                let pos = window.bancosPlateia[index % window.bancosPlateia.length];
+                let pos = bancosPlateia[index % bancosPlateia.length];
                 let div = Array.from(container.children).find(c => c.dataset.nick === nick);
 
                 let avatar = dados[nick]?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=fallback';
