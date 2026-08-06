@@ -604,15 +604,32 @@
         }
 
         async function iniciarComContagem() {
-            // ... código existente
-            jogo.ativo = true; jogo.iniciando = false; jogo.turno_atual = 0; jogo.tempo_inicio = Date.now();
+            jogo.iniciando = true;
+            jogo.qnt_inicial = jogo.jogadores_plateia.length;
+            atualizarTela();
+
+            // A CONTAGEM REGRESSIVA VOLTOU AQUI
+            for (let i = 5; i > 0; i--) {
+                dispararEfeito('countdown', i.toString());
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            dispararEfeito('countdown', "BORAAAA!");
+            await new Promise(r => setTimeout(r, 1000));
+
+            jogo.ativo = true;
+            jogo.iniciando = false;
+            jogo.turno_atual = 0;
+            jogo.tempo_inicio = Date.now();
             jogo.tempo_rodada_atual = parseInt(jogo.config.tempo_rodada) || 60;
 
-            // ADICIONE A LIMPEZA DAS BOMBAS AQUI:
+            // A LIMPEZA DAS BOMBAS MANTIDA E SALVA
             jogo.bombas_ativas = {};
 
-            jogo.acertos_rodada = []; jogo.palavras_display = []; jogo.combos_usados = [];
-            sortearDesafio(); atualizarTela();
+            jogo.acertos_rodada = [];
+            jogo.palavras_display = [];
+            jogo.combos_usados = [];
+            sortearDesafio();
+            atualizarTela();
         }
 
         function avancarRodada() {
@@ -1007,12 +1024,18 @@
         }
 
         function escolherAlvoBomba(excluido = null) {
-            // Em Daaz o alvo fica na Plateia
-            let candidatos = jogo.jogadores_plateia.filter(j => j !== excluido);
-            if (candidatos.length === 0) candidatos = jogo.jogadores_plateia;
+            // 1. Pega os jogadores da Plateia, removendo o remetente E quem JÁ TEM uma bomba!
+            let candidatos = jogo.jogadores_plateia.filter(j => j !== excluido && jogo.bombas_ativas[j] === undefined);
+
+            // 2. Se todos (menos o remetente) já tiverem bomba, permite jogar no próprio remetente (se ele não tiver)
+            if (candidatos.length === 0) {
+                candidatos = jogo.jogadores_plateia.filter(j => jogo.bombas_ativas[j] === undefined);
+            }
+
+            // 3. Se absolutamente todo mundo na plateia já tem bomba, não faz nada
             if (candidatos.length === 0) return null;
 
-            // Sistema de pesos copiado do Estope
+            // Sistema de pesos copiado do Estope (mantido!)
             let pesos = candidatos.map((_, i) => i + 1);
             let total = pesos.reduce((a, b) => a + b, 0);
             let rand = Math.random() * total;
