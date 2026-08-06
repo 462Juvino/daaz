@@ -514,10 +514,17 @@
             const dataDict = rData[per] || {vitorias: {}, palavras: {}, heroi: {}, vilao: {}};
 
             if (jogo.config.volume_explosao !== undefined) audioExplosaoMp3.volume = jogo.config.volume_explosao;
-            if (jogo.config.bg_type === 'color') {
-                document.body.style.backgroundImage = 'none'; document.body.style.backgroundColor = jogo.config.bg_value;
-            } else if (jogo.config.bg_type === 'image' && jogo.config.bg_value.startsWith('data:image')) {
-                document.body.style.backgroundColor = 'transparent'; document.body.style.backgroundImage = `url('${jogo.config.bg_value}')`;
+
+            // LÓGICA DE FUNDO TRANSPARENTE E CORES ATUALIZADA
+            if (jogo.config.bg_type === 'transparent') {
+                document.body.style.backgroundImage = 'none';
+                document.body.style.backgroundColor = 'transparent';
+            } else if (jogo.config.bg_type === 'color') {
+                document.body.style.backgroundImage = 'none';
+                document.body.style.backgroundColor = jogo.config.bg_value;
+            } else if (jogo.config.bg_type === 'image' && jogo.config.bg_value && jogo.config.bg_value.startsWith('data:image')) {
+                document.body.style.backgroundColor = 'transparent';
+                document.body.style.backgroundImage = `url('${jogo.config.bg_value}')`;
             }
 
             const telaVencedorAtiva = document.getElementById('tela-vencedor').classList.contains('show');
