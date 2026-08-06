@@ -1024,26 +1024,27 @@
         }
 
         function escolherAlvoBomba(excluido = null) {
-            // 1. Pega os jogadores da Plateia, removendo o remetente E quem JÁ TEM uma bomba!
-            let candidatos = jogo.jogadores_plateia.filter(j => j !== excluido && jogo.bombas_ativas[j] === undefined);
+            console.log(`[DEBUG BOMBA] ---------------------------------`);
+            console.log(`[DEBUG BOMBA] Procurando alvo. Quem mandou:`, excluido);
 
-            // 2. Se todos (menos o remetente) já tiverem bomba, permite jogar no próprio remetente (se ele não tiver)
+            let candidatos = jogo.jogadores_plateia.filter(j => j !== excluido && jogo.bombas_ativas[j] === undefined);
+            console.log(`[DEBUG BOMBA] Candidatos livres (sem o remetente):`, JSON.stringify(candidatos));
+
             if (candidatos.length === 0) {
                 candidatos = jogo.jogadores_plateia.filter(j => jogo.bombas_ativas[j] === undefined);
+                console.log(`[DEBUG BOMBA] Ninguém livre sem o remetente. Testando com o remetente:`, JSON.stringify(candidatos));
             }
 
-            // 3. Se absolutamente todo mundo na plateia já tem bomba, não faz nada
-            if (candidatos.length === 0) return null;
-
-            // Sistema de pesos copiado do Estope (mantido!)
-            let pesos = candidatos.map((_, i) => i + 1);
-            let total = pesos.reduce((a, b) => a + b, 0);
-            let rand = Math.random() * total;
-            for (let i = 0; i < candidatos.length; i++) {
-                if (rand < pesos[i]) return candidatos[i];
-                rand -= pesos[i];
+            if (candidatos.length === 0) {
+                console.log(`[DEBUG BOMBA] ❌ Plateia inteira já tem bomba. Retornando NULL.`);
+                return null;
             }
-            return candidatos[0];
+
+            let randomIndex = Math.floor(Math.random() * candidatos.length);
+            let alvo_sorteado = candidatos[randomIndex];
+            console.log(`[DEBUG BOMBA] ✅ Sorteio feito! Alvo escolhido:`, alvo_sorteado);
+
+            return alvo_sorteado;
         }
         function atualizarHierarquia() {
             jogo.jogadores_plateia.sort((a, b) => {
@@ -1096,7 +1097,7 @@
             let nick_bruto = (dados.nickname || dados.uniqueId || "").trim();
             if (!nick_bruto || nick_bruto.toLowerCase() === "none") return;
 
-            // 🛡️ A CURA PRINCIPAL: Remove o ponto do seu nome antes mesmo de jogar!
+            // A CURA DO FIREBASE APLICADA AO NOME
             let nick = nick_bruto.replace(/[.#$\[\]\/]/g, "_");
 
             let avatar_url = dados.profilePictureUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${nick}`;
@@ -1136,14 +1137,15 @@
                 let c_uma_bomba = (cfg.presente_uma_bomba || "").toLowerCase().replace(/[^a-z0-9]/g, "");
                 let c_empurrar = (cfg.presente_empurrar || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-                let is_ent = (c_ent !== "" && pres.includes(c_ent)) || (c_ent.includes("rosa") && pres.includes("rosa"));
-                let is_rev = (c_rev !== "" && pres.includes(c_rev)) || (c_rev.includes("coracao") && pres.includes("heart"));
+                // Removi as amarras forçadas de "rosa". Agora o jogo obedece 100% o que você digitar no Painel!
+                let is_ent = (c_ent !== "" && pres.includes(c_ent));
+                let is_rev = (c_rev !== "" && pres.includes(c_rev));
                 let is_menos = (c_menos !== "" && pres.includes(c_menos));
                 let is_kick = (c_kick !== "" && pres.includes(c_kick));
                 let is_tempo = (c_tempo !== "" && pres.includes(c_tempo));
                 let is_pular = (c_pular !== "" && pres.includes(c_pular));
                 let is_colete = (c_colete !== "" && pres.includes(c_colete));
-                let is_uma_bomba = (c_uma_bomba !== "" && pres.includes(c_uma_bomba)) || pres.includes("rosa");
+                let is_uma_bomba = (c_uma_bomba !== "" && pres.includes(c_uma_bomba));
                 let is_empurrar = (c_empurrar !== "" && pres.includes(c_empurrar));
 
                 let isValidGift = is_ent || is_rev || is_menos || is_kick || is_tempo || is_pular || is_colete || is_uma_bomba || is_empurrar;
@@ -1172,7 +1174,18 @@
                 }
 
                 if (jogo.ativo && jogo.jogadores_plateia.length > 0) {
-                    if (is_colete && acoes > 0) {
+                    // 🔥 A NUCLEAR (KICK) AGORA VEM EM PRIMEIRO LUGAR NA ORDEM! 🔥
+                    if (is_kick) {
+                        addRanking("vilao", nick, 50);
+                        let tempo_queda = parseInt(jogo.config.tempo_bomba_queda) || 7;
+                        let qtdLancada = 0;
+                        for(let i=0; i < (4 * acoes); i++) {
+                            let alvo = escolherAlvoBomba(nick);
+                            if (alvo) { jogo.bombas_ativas[alvo] = tempo_queda; qtdLancada++; }
+                        }
+                        dispararEfeito('aviso', `☢️ NUCLEAR: ${qtdLancada} BOMBAS LANÇADAS! ☢️`);
+                    }
+                    else if (is_colete && acoes > 0) {
                          jogo.dados_jogadores[nick].colete += acoes; addRanking("heroi", nick, acoes); dispararEfeito('aviso', `🛡️ +${acoes} COLETE(S)!`);
                     }
                     else if (is_menos) {
@@ -1187,10 +1200,12 @@
                     else if (is_uma_bomba) {
                         addRanking("vilao", nick, acoes);
                         let tempo_queda = parseInt(jogo.config.tempo_bomba_queda) || 7;
+                        let qtdLancada = 0;
                         for(let i=0; i<acoes; i++) {
                             let alvo = escolherAlvoBomba(nick);
-                            if (alvo) { jogo.bombas_ativas[alvo] = tempo_queda; dispararEfeito('aviso', `💣 BOMBA CAIU EM ${alvo}!`); }
+                            if (alvo) { jogo.bombas_ativas[alvo] = tempo_queda; qtdLancada++; }
                         }
+                        if(qtdLancada > 0) dispararEfeito('aviso', `💣 ${qtdLancada} BOMBA(S) CAIU!`);
                     }
                     else if (is_empurrar) {
                         if (jogo.bombas_ativas[nick] !== undefined) {
@@ -1201,84 +1216,8 @@
                             if (novo_alvo) { jogo.bombas_ativas[novo_alvo] = tempo_restante; dispararEfeito('aviso', `✋ ${nick_bruto} EMPURROU A BOMBA PARA ${novo_alvo}!`); }
                         }
                     }
-                    else if (is_kick) {
-                        addRanking("vilao", nick, 50);
-                        let tempo_queda = parseInt(jogo.config.tempo_bomba_queda) || 7;
-                        dispararEfeito('aviso', `☢️ NUCLEAR: 4 BOMBAS LANÇADAS! ☢️`);
-                        for(let i=0; i < (4 * acoes); i++) {
-                            let alvo = escolherAlvoBomba(nick);
-                            if (alvo) { jogo.bombas_ativas[alvo] = tempo_queda; }
-                        }
-                    }
                 }
                 atualizarTela();
-            }
-
-            if (evento === "chat") {
-                let msg_bruta = (dados.comment || "");
-                let msg_limpa = msg_bruta.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
-                let msg_numerica = msg_bruta.replace(/[^0-9\-]/g, "");
-
-                let arrayPalavras = msg_bruta.split(" ").map(p => p.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, ""));
-                arrayPalavras.push(msg_bruta.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, ""));
-
-                let alvo_encontrado = null;
-                for(let p_name of Object.keys(jogo.dados_jogadores)) {
-                    let p_limpo = p_name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
-                    if(p_limpo && arrayPalavras.includes(p_limpo)) { alvo_encontrado = p_name; break; }
-                }
-
-                if (alvo_encontrado) {
-                    let tk = jogo.dados_jogadores[nick].tickets?.reviver || 0;
-                    let col = jogo.dados_jogadores[nick].colete || 0;
-
-                    if (!jogo.jogadores_plateia.includes(alvo_encontrado) && tk > 0) {
-                        adicionarJogador(alvo_encontrado, jogo.dados_jogadores[alvo_encontrado].avatar);
-                        jogo.dados_jogadores[nick].tickets.reviver--;
-                        if (nick !== alvo_encontrado) { addRanking("heroi", nick, 1); dispararEfeito('aviso', `${nick_bruto} SALVOU ${alvo_encontrado}!`); }
-                        else { dispararEfeito('aviso', `${nick_bruto} RESSUSCITOU!`); }
-                        return;
-                    } else if (col > 0 && nick !== alvo_encontrado) {
-                        jogo.dados_jogadores[nick].colete--; jogo.dados_jogadores[alvo_encontrado].colete++;
-                        dispararEfeito('aviso', `🛡️ ${nick_bruto} DEU 1 COLETE A ${alvo_encontrado}!`); return;
-                    }
-                }
-
-                if (msg_limpa && jogo.ativo && jogo.jogadores_plateia.length > 0) {
-                    if (jogo.jogadores_plateia.includes(nick) && !jogo.acertos_rodada.includes(nick)) {
-                        let primeiraLetra = msg_limpa.charAt(0);
-                        if(jogo.alfabeto_estado[primeiraLetra] !== undefined) {
-                            if (jogo.alfabeto_estado[primeiraLetra] !== null) {
-                                dispararEfeito('aviso', `A LETRA ${primeiraLetra} JÁ TEM DONO!`);
-                            }
-                            else {
-                                let isValid = false;
-                                if (jogo.categoria_atual === "GERAL") {
-                                    if (dicionarioGlobal.has(msg_limpa)) isValid = true;
-                                } else {
-                                    let setCat = (dicionarioCategorias[jogo.categoria_atual] && dicionarioCategorias[jogo.categoria_atual][primeiraLetra]) ? dicionarioCategorias[jogo.categoria_atual][primeiraLetra] : new Set();
-                                    if (setCat.has(msg_limpa)) isValid = true;
-                                }
-
-                                if (!isValid) {
-                                    dispararEfeito('aviso', jogo.categoria_atual === "GERAL" ? "NÃO EXISTE!" : `NÃO EXISTE EM ${jogo.categoria_atual}!`);
-                                } else if (msg_limpa.length < 3) {
-                                    dispararEfeito('aviso', "MUITO CURTA!");
-                                } else if (!jogo.palavras_usadas.includes(msg_limpa)) {
-                                    jogo.palavras_usadas.push(msg_limpa);
-                                    jogo.dados_jogadores[nick].acertos_lista.push(msg_limpa);
-                                    jogo.acertos_rodada.push(nick);
-                                    jogo.alfabeto_estado[primeiraLetra] = nick;
-                                    jogo.palavras_display.push({nick: nick_bruto, palavra: msg_limpa, avatar: jogo.dados_jogadores[nick].avatar});
-                                    addRanking("palavras", nick, 1);
-                                    atualizarTela();
-                                } else {
-                                    dispararEfeito('aviso', `REPETIDA: ${msg_limpa}!`);
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
 
