@@ -208,6 +208,7 @@
                                     let letra = pLimpa[0];
                                     if(!dicionarioCategorias[catLimpa][letra]) dicionarioCategorias[catLimpa][letra] = new Set();
                                     dicionarioCategorias[catLimpa][letra].add(pLimpa);
+                                    dicionarioGlobal.add(pLimpa); // 🔥 Abastece o GERAL!
                                 }
                             }
                         }
@@ -1224,6 +1225,93 @@
                 }
                 atualizarTela();
             }
+
+            // 🔥 AQUI ESTÁ O BLOCO DO CHAT QUE TINHA SIDO DELETADO! 🔥
+            if (evento === "chat") {
+                let msg_bruta = (dados.comment || "");
+                let msg_limpa = msg_bruta.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+                let msg_numerica = msg_bruta.replace(/[^0-9\-]/g, "");
+
+                let arrayPalavras = msg_bruta.split(" ").map(p => p.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, ""));
+                arrayPalavras.push(msg_bruta.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, ""));
+
+                let alvo_encontrado = null;
+                for(let p_name of Object.keys(jogo.dados_jogadores)) {
+                    let p_limpo = p_name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
+                    if(p_limpo && arrayPalavras.includes(p_limpo)) { alvo_encontrado = p_name; break; }
+                }
+
+                if (alvo_encontrado) {
+                    let tk = jogo.dados_jogadores[nick].tickets?.reviver || 0;
+                    let col = jogo.dados_jogadores[nick].colete || 0;
+                    let quer_reviver = msg_limpa.includes("REVIVER");
+                    let quer_colete = msg_limpa.includes("COLETE");
+
+                    if (!jogo.jogadores_plateia.includes(alvo_encontrado) && tk > 0 && quer_reviver) {
+                        adicionarJogador(alvo_encontrado, jogo.dados_jogadores[alvo_encontrado].avatar);
+                        jogo.dados_jogadores[nick].tickets.reviver--;
+                        dispararEfeito('aviso', nick !== alvo_encontrado ? `${nick_bruto} SALVOU ${alvo_encontrado}!` : `${nick_bruto} RESSUSCITOU!`); return;
+                    } else if (col > 0 && nick !== alvo_encontrado && quer_colete) {
+                        jogo.dados_jogadores[nick].colete--; jogo.dados_jogadores[alvo_encontrado].colete++;
+                        dispararEfeito('aviso', `🛡️ ${nick_bruto} DEU 1 COLETE A ${alvo_encontrado}!`); return;
+                    }
+                }
+
+                if ((msg_limpa || msg_numerica) && jogo.ativo && jogo.jogadores_plateia.length > 0) {
+                    // Busca Cega para nunca te ignorar
+                    let idChat = dados.uniqueId ? dados.uniqueId.replace(/[.#$\[\]\/]/g, "_").toUpperCase() : "";
+                    let jogadorNaPlateia = jogo.jogadores_plateia.find(p =>
+                        p.toUpperCase() === nick.toUpperCase() || p.toUpperCase() === idChat
+                    );
+
+                    if (jogadorNaPlateia && !jogo.acertos_rodada.includes(jogadorNaPlateia)) {
+                        let nickValido = jogadorNaPlateia;
+                        let primeiraLetra = msg_limpa.charAt(0);
+
+                        if (jogo.tipo_desafio === "matematica" && msg_numerica === jogo.resposta_matematica) {
+                            addRanking("palavras", nickValido, 1); dispararEfeito('aviso', `${nickValido} ACERTOU!`);
+                            if (jogo.tempo_rodada_atual > 10) jogo.tempo_rodada_atual -= 10;
+                            else if (jogo.tempo_rodada_atual > 5) jogo.tempo_rodada_atual -= 1;
+                            sortearDesafio();
+                        } else if (jogo.tipo_desafio === "letra_categoria" && jogo.alfabeto_estado[primeiraLetra] !== undefined) {
+
+                            // Verifica se a letra que o cara digitou já tem dono
+                            if (jogo.alfabeto_estado[primeiraLetra] !== null) {
+                                dispararEfeito('aviso', `A LETRA ${primeiraLetra} JÁ TEM DONO!`);
+                            }
+                            else {
+                                // Checa se a palavra existe naquela letra
+                                let isValid = false;
+                                if (jogo.categoria_atual === "GERAL") {
+                                    if (dicionarioGlobal.has(msg_limpa)) isValid = true;
+                                } else {
+                                    let setCat = (dicionarioCategorias[jogo.categoria_atual] && dicionarioCategorias[jogo.categoria_atual][primeiraLetra]) ? dicionarioCategorias[jogo.categoria_atual][primeiraLetra] : new Set();
+                                    if (setCat.has(msg_limpa)) isValid = true;
+                                }
+
+                                if (!isValid) {
+                                    dispararEfeito('aviso', jogo.categoria_atual === "GERAL" ? "NÃO EXISTE!" : `NÃO EXISTE EM ${jogo.categoria_atual}!`);
+                                } else if (msg_limpa.length < 3) {
+                                    dispararEfeito('aviso', "MUITO CURTA!");
+                                } else if (!jogo.palavras_usadas.includes(msg_limpa)) {
+                                    jogo.palavras_usadas.push(msg_limpa);
+                                    jogo.dados_jogadores[nickValido].acertos_lista.push(msg_limpa);
+                                    jogo.acertos_rodada.push(nickValido);
+
+                                    // Adiciona a foto do jogador na letra certa
+                                    jogo.alfabeto_estado[primeiraLetra] = nickValido;
+
+                                    jogo.palavras_display.push({nick: nick_bruto, palavra: msg_limpa, avatar: jogo.dados_jogadores[nickValido].avatar});
+                                    addRanking("palavras", nickValido, 1);
+                                    atualizarTela();
+                                } else {
+                                    dispararEfeito('aviso', `REPETIDA: ${msg_limpa}!`);
+                                }
+                            }
+                        }
+                    }
+                }
+            } // <-- Fim do bloco de chat
         }
 
         let conexaoNuvemEstabelecida = false;
