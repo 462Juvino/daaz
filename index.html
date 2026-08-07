@@ -660,6 +660,7 @@
                 jogo.bombas_ativas = {};
 
                 if (vencedor) {
+                    addRanking("vitorias", vencedor, 1); // 🔥 REGISTRA A VITÓRIA NO RANKING!
                     let d = { nick: vencedor, avatar: jogo.dados_jogadores[vencedor].avatar, tempo: Math.floor((Date.now() - jogo.tempo_inicio)/1000), palavras: jogo.dados_jogadores[vencedor].acertos_lista || [] };
                     dispararEfeito('game_over', d);
                 } else { dispararEfeito('game_over', null); }
@@ -785,6 +786,7 @@
 
                      let vencedor = jogo.jogadores_plateia[0] || null;
                      if (vencedor) {
+                         addRanking("vitorias", vencedor, 1); // 🔥 REGISTRA A VITÓRIA NO RANKING TAMBÉM AQUI!
                          let d = { nick: vencedor, avatar: jogo.dados_jogadores[vencedor].avatar, tempo: Math.floor((Date.now() - jogo.tempo_inicio)/1000), palavras: jogo.dados_jogadores[vencedor].acertos_lista || [] };
                          dispararEfeito('game_over', d);
                      } else {
