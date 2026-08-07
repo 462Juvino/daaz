@@ -1250,7 +1250,9 @@
                     if (!jogo.jogadores_plateia.includes(alvo_encontrado) && tk > 0 && quer_reviver) {
                         adicionarJogador(alvo_encontrado, jogo.dados_jogadores[alvo_encontrado].avatar);
                         jogo.dados_jogadores[nick].tickets.reviver--;
-                        dispararEfeito('aviso', nick !== alvo_encontrado ? `${nick_bruto} SALVOU ${alvo_encontrado}!` : `${nick_bruto} RESSUSCITOU!`); return;
+                        if (nick !== alvo_encontrado) { addRanking("heroi", nick, 1); dispararEfeito('aviso', `${nick_bruto} SALVOU ${alvo_encontrado}!`); }
+                        else { dispararEfeito('aviso', `${nick_bruto} RESSUSCITOU!`); }
+                        return;
                     } else if (col > 0 && nick !== alvo_encontrado && quer_colete) {
                         jogo.dados_jogadores[nick].colete--; jogo.dados_jogadores[alvo_encontrado].colete++;
                         dispararEfeito('aviso', `🛡️ ${nick_bruto} DEU 1 COLETE A ${alvo_encontrado}!`); return;
@@ -1258,7 +1260,7 @@
                 }
 
                 if ((msg_limpa || msg_numerica) && jogo.ativo && jogo.jogadores_plateia.length > 0) {
-                    // Busca Cega para nunca te ignorar
+                    // Busca Cega para nunca te ignorar entre o Painel e o Chat
                     let idChat = dados.uniqueId ? dados.uniqueId.replace(/[.#$\[\]\/]/g, "_").toUpperCase() : "";
                     let jogadorNaPlateia = jogo.jogadores_plateia.find(p =>
                         p.toUpperCase() === nick.toUpperCase() || p.toUpperCase() === idChat
@@ -1268,19 +1270,11 @@
                         let nickValido = jogadorNaPlateia;
                         let primeiraLetra = msg_limpa.charAt(0);
 
-                        if (jogo.tipo_desafio === "matematica" && msg_numerica === jogo.resposta_matematica) {
-                            addRanking("palavras", nickValido, 1); dispararEfeito('aviso', `${nickValido} ACERTOU!`);
-                            if (jogo.tempo_rodada_atual > 10) jogo.tempo_rodada_atual -= 10;
-                            else if (jogo.tempo_rodada_atual > 5) jogo.tempo_rodada_atual -= 1;
-                            sortearDesafio();
-                        } else if (jogo.tipo_desafio === "letra_categoria" && jogo.alfabeto_estado[primeiraLetra] !== undefined) {
-
-                            // Verifica se a letra que o cara digitou já tem dono
+                        // Lógica de Alfabeto do DAAZ Restaurada!
+                        if (jogo.tipo_desafio === "letra_categoria" && jogo.alfabeto_estado[primeiraLetra] !== undefined) {
                             if (jogo.alfabeto_estado[primeiraLetra] !== null) {
                                 dispararEfeito('aviso', `A LETRA ${primeiraLetra} JÁ TEM DONO!`);
-                            }
-                            else {
-                                // Checa se a palavra existe naquela letra
+                            } else {
                                 let isValid = false;
                                 if (jogo.categoria_atual === "GERAL") {
                                     if (dicionarioGlobal.has(msg_limpa)) isValid = true;
@@ -1298,7 +1292,7 @@
                                     jogo.dados_jogadores[nickValido].acertos_lista.push(msg_limpa);
                                     jogo.acertos_rodada.push(nickValido);
 
-                                    // Adiciona a foto do jogador na letra certa
+                                    // Bota o Avatar na Roda de Letras
                                     jogo.alfabeto_estado[primeiraLetra] = nickValido;
 
                                     jogo.palavras_display.push({nick: nick_bruto, palavra: msg_limpa, avatar: jogo.dados_jogadores[nickValido].avatar});
@@ -1311,6 +1305,7 @@
                         }
                     }
                 }
+
             } // <-- Fim do bloco de chat
         }
 
