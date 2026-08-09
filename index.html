@@ -208,7 +208,6 @@
                                     let letra = pLimpa[0];
                                     if(!dicionarioCategorias[catLimpa][letra]) dicionarioCategorias[catLimpa][letra] = new Set();
                                     dicionarioCategorias[catLimpa][letra].add(pLimpa);
-                                    dicionarioGlobal.add(pLimpa); // 🔥 Abastece o GERAL!
                                 }
                             }
                         }
@@ -660,7 +659,6 @@
                 jogo.bombas_ativas = {};
 
                 if (vencedor) {
-                    addRanking("vitorias", vencedor, 1); // 🔥 REGISTRA A VITÓRIA NO RANKING!
                     let d = { nick: vencedor, avatar: jogo.dados_jogadores[vencedor].avatar, tempo: Math.floor((Date.now() - jogo.tempo_inicio)/1000), palavras: jogo.dados_jogadores[vencedor].acertos_lista || [] };
                     dispararEfeito('game_over', d);
                 } else { dispararEfeito('game_over', null); }
@@ -786,7 +784,6 @@
 
                      let vencedor = jogo.jogadores_plateia[0] || null;
                      if (vencedor) {
-                         addRanking("vitorias", vencedor, 1); // 🔥 REGISTRA A VITÓRIA NO RANKING TAMBÉM AQUI!
                          let d = { nick: vencedor, avatar: jogo.dados_jogadores[vencedor].avatar, tempo: Math.floor((Date.now() - jogo.tempo_inicio)/1000), palavras: jogo.dados_jogadores[vencedor].acertos_lista || [] };
                          dispararEfeito('game_over', d);
                      } else {
@@ -1135,15 +1132,15 @@
                 let qtd_combo = parseInt(dados.repeatCount || dados.giftCount || dados.count || 1);
                 let cfg = jogo.config;
 
-                let c_ent = (cfg.presente_entrada || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let c_rev = (cfg.presente_reviver || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let c_menos = (cfg.presente_menos_tempo || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let c_kick = (cfg.presente_kick || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let c_tempo = (cfg.presente_tempo || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let c_pular = (cfg.presente_pular || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let c_colete = (cfg.presente_colete || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let c_uma_bomba = (cfg.presente_uma_bomba || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let c_empurrar = (cfg.presente_empurrar || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let c_ent = (cfg.presente_entrada || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let c_rev = (cfg.presente_reviver || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let c_menos = (cfg.presente_menos_tempo || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let c_kick = (cfg.presente_kick || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let c_tempo = (cfg.presente_tempo || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let c_pular = (cfg.presente_pular || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let c_colete = (cfg.presente_colete || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let c_uma_bomba = (cfg.presente_uma_bomba || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                let c_empurrar = (cfg.presente_empurrar || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 
                 // Removi as amarras forçadas de "rosa". Agora o jogo obedece 100% o que você digitar no Painel!
                 let is_ent = (c_ent !== "" && pres.includes(c_ent));
@@ -1227,88 +1224,6 @@
                 }
                 atualizarTela();
             }
-
-            // 🔥 AQUI ESTÁ O BLOCO DO CHAT QUE TINHA SIDO DELETADO! 🔥
-            if (evento === "chat") {
-                let msg_bruta = (dados.comment || "");
-                let msg_limpa = msg_bruta.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
-                let msg_numerica = msg_bruta.replace(/[^0-9\-]/g, "");
-
-                let arrayPalavras = msg_bruta.split(" ").map(p => p.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, ""));
-                arrayPalavras.push(msg_bruta.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, ""));
-
-                let alvo_encontrado = null;
-                for(let p_name of Object.keys(jogo.dados_jogadores)) {
-                    let p_limpo = p_name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
-                    if(p_limpo && arrayPalavras.includes(p_limpo)) { alvo_encontrado = p_name; break; }
-                }
-
-                if (alvo_encontrado) {
-                    let tk = jogo.dados_jogadores[nick].tickets?.reviver || 0;
-                    let col = jogo.dados_jogadores[nick].colete || 0;
-                    let quer_reviver = msg_limpa.includes("REVIVER");
-                    let quer_colete = msg_limpa.includes("COLETE");
-
-                    if (!jogo.jogadores_plateia.includes(alvo_encontrado) && tk > 0 && quer_reviver) {
-                        adicionarJogador(alvo_encontrado, jogo.dados_jogadores[alvo_encontrado].avatar);
-                        jogo.dados_jogadores[nick].tickets.reviver--;
-                        if (nick !== alvo_encontrado) { addRanking("heroi", nick, 1); dispararEfeito('aviso', `${nick_bruto} SALVOU ${alvo_encontrado}!`); }
-                        else { dispararEfeito('aviso', `${nick_bruto} RESSUSCITOU!`); }
-                        return;
-                    } else if (col > 0 && nick !== alvo_encontrado && quer_colete) {
-                        jogo.dados_jogadores[nick].colete--; jogo.dados_jogadores[alvo_encontrado].colete++;
-                        dispararEfeito('aviso', `🛡️ ${nick_bruto} DEU 1 COLETE A ${alvo_encontrado}!`); return;
-                    }
-                }
-
-                if ((msg_limpa || msg_numerica) && jogo.ativo && jogo.jogadores_plateia.length > 0) {
-                    // Busca Cega para nunca te ignorar entre o Painel e o Chat
-                    let idChat = dados.uniqueId ? dados.uniqueId.replace(/[.#$\[\]\/]/g, "_").toUpperCase() : "";
-                    let jogadorNaPlateia = jogo.jogadores_plateia.find(p =>
-                        p.toUpperCase() === nick.toUpperCase() || p.toUpperCase() === idChat
-                    );
-
-                    if (jogadorNaPlateia && !jogo.acertos_rodada.includes(jogadorNaPlateia)) {
-                        let nickValido = jogadorNaPlateia;
-                        let primeiraLetra = msg_limpa.charAt(0);
-
-                        // Lógica de Alfabeto do DAAZ Restaurada!
-                        if (jogo.tipo_desafio === "letra_categoria" && jogo.alfabeto_estado[primeiraLetra] !== undefined) {
-                            if (jogo.alfabeto_estado[primeiraLetra] !== null) {
-                                dispararEfeito('aviso', `A LETRA ${primeiraLetra} JÁ TEM DONO!`);
-                            } else {
-                                let isValid = false;
-                                if (jogo.categoria_atual === "GERAL") {
-                                    if (dicionarioGlobal.has(msg_limpa)) isValid = true;
-                                } else {
-                                    let setCat = (dicionarioCategorias[jogo.categoria_atual] && dicionarioCategorias[jogo.categoria_atual][primeiraLetra]) ? dicionarioCategorias[jogo.categoria_atual][primeiraLetra] : new Set();
-                                    if (setCat.has(msg_limpa)) isValid = true;
-                                }
-
-                                if (!isValid) {
-                                    dispararEfeito('aviso', jogo.categoria_atual === "GERAL" ? "NÃO EXISTE!" : `NÃO EXISTE EM ${jogo.categoria_atual}!`);
-                                } else if (msg_limpa.length < 3) {
-                                    dispararEfeito('aviso', "MUITO CURTA!");
-                                } else if (!jogo.palavras_usadas.includes(msg_limpa)) {
-                                    jogo.palavras_usadas.push(msg_limpa);
-                                    jogo.dados_jogadores[nickValido].acertos_lista.push(msg_limpa);
-                                    jogo.acertos_rodada.push(nickValido);
-
-                                    // Bota o Avatar na Roda de Letras
-                                    jogo.alfabeto_estado[primeiraLetra] = nickValido;
-
-                                    jogo.palavras_display.push({nick: nick_bruto, palavra: msg_limpa, avatar: jogo.dados_jogadores[nickValido].avatar});
-                                    addRanking("palavras", nickValido, 1);
-                                    atualizarTela();
-                                } else {
-                                    dispararEfeito('aviso', `REPETIDA: ${msg_limpa}!`);
-                                }
-                            }
-                        }
-                    }
-                }
-
-            } // <-- Fim do bloco de chat
         }
 
         let conexaoNuvemEstabelecida = false;
