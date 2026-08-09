@@ -70,7 +70,7 @@
         .stat-box p { margin: 0; font-size: 1.2rem; font-weight: bold; word-wrap: break-word; }
         @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
 
-        .aviso-popup { position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 71, 87, 0.95); color: white; padding: 15px 40px; border-radius: 12px; font-size: 2rem; font-weight: 900; letter-spacing: 2px; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s; border: 3px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-transform: uppercase; }
+        .aviso-popup { position: absolute; top: 70%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 71, 87, 0.95); color: white; padding: 15px 40px; border-radius: 12px; font-size: 2rem; font-weight: 900; letter-spacing: 2px; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.2s; border: 3px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-transform: uppercase; }
 
         #ranking-view { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; z-index: 800; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); }
         .ranking-title { font-size: 4rem; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; text-shadow: 0 0 20px rgba(255,255,255,0.5); display: flex; align-items: center; gap: 20px; }
@@ -481,7 +481,7 @@
             if (tipo === 'aviso') {
                 const aviso = document.getElementById('aviso-popup');
                 aviso.innerText = dados; aviso.style.opacity = '1';
-                if(dados.includes("JÁ USADA") || dados.includes("CURTA") || dados.includes("NÃO EXISTE") || dados.includes("REPETID")) playError();
+                if(dados.includes("JÁ USADA") || dados.includes("CURTA") || dados.includes("NÃO EXISTE") || dados.includes("REPETIDO")) playError();
                 setTimeout(() => { aviso.style.opacity = '0'; }, 2500);
                 return;
             }
@@ -583,9 +583,13 @@
         }
 
         function sortearDesafio() {
-            // Limpa o alfabeto no início da rodada
+            // Limpa o alfabeto no início da rodada, exceto as removidas
             for (let letra in jogo.alfabeto_estado) {
-                jogo.alfabeto_estado[letra] = null;
+                if (jogo.letras_removidas && jogo.letras_removidas.includes(letra)) {
+                    jogo.alfabeto_estado[letra] = "REMOVIDA"; // Trava a letra no backend
+                } else {
+                    jogo.alfabeto_estado[letra] = null;
+                }
             }
 
             jogo.tipo_desafio = "letra_categoria";
@@ -631,6 +635,7 @@
 
             // A LIMPEZA DAS BOMBAS MANTIDA E SALVA
             jogo.bombas_ativas = {};
+            jogo.letras_removidas = []; // Esvazia o cemitério de letras na nova partida
 
             jogo.acertos_rodada = [];
             jogo.palavras_display = [];
@@ -657,17 +662,35 @@
                 jogo.acertos_rodada = [];
                 // ADICIONE A LIMPEZA AQUI TAMBÉM:
                 jogo.bombas_ativas = {};
+                jogo.letras_removidas = [];
 
                 if (vencedor) {
                     let d = { nick: vencedor, avatar: jogo.dados_jogadores[vencedor].avatar, tempo: Math.floor((Date.now() - jogo.tempo_inicio)/1000), palavras: jogo.dados_jogadores[vencedor].acertos_lista || [] };
                     dispararEfeito('game_over', d);
                 } else { dispararEfeito('game_over', null); }
             } else {
-                // O jogo continua, novo tema é sorteado. Tempo mínimo travado em 10s!
-                if (jogo.tempo_rodada_atual > 20) {
+                if (!jogo.letras_removidas) jogo.letras_removidas = [];
+
+                if (jogo.tempo_rodada_atual > 25) {
                     jogo.tempo_rodada_atual -= 10;
+                } else if (jogo.tempo_rodada_atual > 15) {
+                    jogo.tempo_rodada_atual = 15;
                 } else {
-                    jogo.tempo_rodada_atual = 10; // Nunca desce de 10 segundos
+                    jogo.tempo_rodada_atual = 15; // Trava o tempo mínimo em 15s
+
+                    // Modo Morte Súbita: Remove uma letra de A a Z
+                    const alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+                    for (let i = 0; i < alfabeto.length; i++) {
+                        if (!jogo.letras_removidas.includes(alfabeto[i])) {
+                            if (jogo.letras_removidas.length < 25) { // Garante que sobre pelo menos 1 letra (Z)
+                                jogo.letras_removidas.push(alfabeto[i]);
+                                setTimeout(() => {
+                                    dispararEfeito('aviso', `⚠️ LETRA ${alfabeto[i]} DESTRUÍDA!`);
+                                }, 1500); // Mostra o aviso logo após a explosão da rodada
+                            }
+                            break; // Remove só uma por rodada
+                        }
+                    }
                 }
                 sortearDesafio();
             }
@@ -829,6 +852,14 @@
 
                 letterContainer.style.left = pos.x + 'px';
                 letterContainer.style.top = pos.y + 'px';
+
+                // Oculta completamente a letra se ela foi removida do jogo
+                if (jogo.letras_removidas && jogo.letras_removidas.includes(letra)) {
+                    letterContainer.style.display = 'none';
+                    return;
+                } else {
+                    letterContainer.style.display = 'flex';
+                }
 
                 const visualCirculo = letterContainer.querySelector('.letra-circulo') || letterContainer.querySelector('.avatar-roda');
                 const nameContainer = letterContainer.querySelector('.nome-roda-container');
