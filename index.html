@@ -1142,6 +1142,49 @@
                 jogo.dados_jogadores[nick] = { avatar: avatar_url, taps: 0, tickets: {reviver: 0}, colete: 0, coins: 0, last_gift_times: {}, gift_counts: {}, acertos_lista: [] };
             }
 
+            // ==========================================
+            // 🗣️ LÓGICA DE LEITURA DO CHAT (ADEDANHA)
+            // ==========================================
+            if (evento === "chat" || evento === "comment") {
+                // Só processa se o jogo estiver rolando, o cara estiver na plateia e AINDA NÃO tiver acertado nessa rodada
+                if (jogo.ativo && jogo.jogadores_plateia.includes(nick) && !jogo.acertos_rodada.includes(nick)) {
+
+                    let textoOriginal = (dados.comment || dados.text || "");
+                    // Limpa a palavra digitada igualzinho limpamos o dicionário (tira acentos e espaços)
+                    let palavraDigitada = textoOriginal.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+
+                    if (palavraDigitada.length >= 2) {
+                        let primeiraLetra = palavraDigitada[0];
+
+                        // Verifica se a letra está disponível (null) na Roda
+                        if (jogo.alfabeto_estado[primeiraLetra] === null) {
+
+                            let catAtualLimpa = jogo.categoria_atual.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, "");
+                            let dicionarioDaLetra = dicionarioCategorias[catAtualLimpa] ? dicionarioCategorias[catAtualLimpa][primeiraLetra] : null;
+
+                            // Se a palavra existir no dicionário e ainda não foi usada na rodada atual
+                            if (dicionarioDaLetra && dicionarioDaLetra.has(palavraDigitada) && !jogo.palavras_usadas.includes(palavraDigitada)) {
+
+                                // ACERTOU! Salva tudo.
+                                jogo.alfabeto_estado[primeiraLetra] = nick;
+                                jogo.acertos_rodada.push(nick);
+                                jogo.palavras_usadas.push(palavraDigitada);
+
+                                // Exibe no topo da tela com a foto original
+                                jogo.palavras_display.push({ avatar: avatar_url, palavra: textoOriginal.toUpperCase().trim() });
+
+                                if (!jogo.dados_jogadores[nick].acertos_lista) jogo.dados_jogadores[nick].acertos_lista = [];
+                                jogo.dados_jogadores[nick].acertos_lista.push(textoOriginal.toUpperCase().trim());
+
+                                addRanking("palavras", nick, 1);
+                                atualizarTela();
+                            }
+                        }
+                    }
+                }
+            }
+            // ==========================================
+
             if (!jogo.ativo && !jogo.iniciando) {
                 if ((evento === "join" || evento === "member") && jogo.config.entrar_por_join) {
                     adicionarJogador(nick, avatar_url);
